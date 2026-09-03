@@ -4,7 +4,7 @@ import AdminSidebar from '../components/AdminSidebar'
 import { C } from '../colors'
 import type { Screen } from '../App'
 
-type Props = { onNavigate: (s: Screen) => void; onSelectProofreader: (name: string | null) => void; onSetFiles?: (master: string, revised: string, bulk: boolean) => void; onSetLrfFlowActive?: (active: boolean) => void }
+type Props = { onNavigate: (s: Screen) => void; onSelectProofreader: (name: string | null) => void; onSetFiles?: (master: string, revised: string, bulk: boolean) => void; onSetLrfFlowActive?: (active: boolean) => void; onSetIfuFlowActive?: (active: boolean) => void }
 
 
 const flashCards = [
@@ -101,7 +101,7 @@ function Badge({ children, bg, color }: { children: ReactNode; bg: string; color
   )
 }
 
-export default function AdminDashboardScreen({ onNavigate, onSelectProofreader, onSetFiles, onSetLrfFlowActive }: Props) {
+export default function AdminDashboardScreen({ onNavigate, onSelectProofreader, onSetFiles, onSetLrfFlowActive, onSetIfuFlowActive }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
   const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'IFU DOCUMENT COMPARISON'>('ALL')
   const [hoveredDataPoint, setHoveredDataPoint] = useState<number | null>(null)
@@ -518,6 +518,7 @@ export default function AdminDashboardScreen({ onNavigate, onSelectProofreader, 
                                 const isBulk = row.mode === 'BULK'
                                 onSetFiles?.(isBulk ? 'Master.pdf' : row.master, isBulk ? 'Revised.pdf' : row.revised, isBulk)
                                 onSetLrfFlowActive?.(row.workflow === 'PROOF READING')
+                                onSetIfuFlowActive?.(row.workflow === 'IFU DOCUMENT COMPARISON')
                                 onNavigate('analysis')
                               }}
                               className="flex items-center justify-center rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"

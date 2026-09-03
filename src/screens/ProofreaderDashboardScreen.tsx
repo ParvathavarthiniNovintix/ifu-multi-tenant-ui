@@ -4,7 +4,7 @@ import { FileText, ClipboardList, CheckCircle2, ArrowRight } from 'lucide-react'
 import { C } from '../colors'
 import type { Screen } from '../App'
 
-type Props = { onNavigate: (s: Screen) => void; onSetLrfFlowActive: (active: boolean) => void; onSetFiles?: (master: string, revised: string, bulk: boolean) => void }
+type Props = { onNavigate: (s: Screen) => void; onSetLrfFlowActive: (active: boolean) => void; onSetIfuFlowActive?: (active: boolean) => void; onSetFiles?: (master: string, revised: string, bulk: boolean) => void }
 
 const recentRuns = [
   {
@@ -131,7 +131,7 @@ function StatusBadge({ status }: { status: string | null }) {
 
 import { useState } from 'react'
 
-export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowActive, onSetFiles }: Props) {
+export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowActive, onSetIfuFlowActive, onSetFiles }: Props) {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
   const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'IFU DOCUMENT COMPARISON'>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
@@ -276,7 +276,7 @@ export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowAct
               ))}
             </ul>
             <button
-              onClick={() => onNavigate('upload-comparison')}
+              onClick={() => onNavigate('upload-ifu')}
               className="mt-auto w-full py-2.5 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-2 transition-colors cursor-pointer hover:opacity-95"
               style={{ backgroundColor: '#5b3ecf' }}
             >
@@ -421,6 +421,7 @@ export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowAct
                               const isBulk = run.mode === 'BULK'
                               onSetFiles?.(isBulk ? 'Master.pdf' : run.master, isBulk ? 'Revised.pdf' : run.revised, isBulk)
                               onSetLrfFlowActive(run.workflow === 'PROOF READING')
+                              onSetIfuFlowActive?.(run.workflow === 'IFU DOCUMENT COMPARISON')
                               onNavigate('analysis')
                             }}
                             className="flex items-center justify-center rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
@@ -435,9 +436,10 @@ export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowAct
                           {run.status === 'PASS' ? (
                             <button
                               onClick={() => {
+                                const isIfu = run.workflow === 'IFU DOCUMENT COMPARISON'
                                 const isLrfBulk = run.mode === 'BULK' && run.workflow === 'PROOF READING'
-                                const file = isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : run.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
-                                const name = isLrfBulk ? 'ProofX_Bulk_LRF_Report.pdf' : run.mode === 'BULK' ? 'ProofX_Bulk_Report.pdf' : 'ProofX_Report.pdf'
+                                const file = isIfu ? '/IFU-Report.pdf' : isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : run.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
+                                const name = isIfu ? 'IFU-Report.pdf' : isLrfBulk ? 'ProofX_Bulk_LRF_Report.pdf' : run.mode === 'BULK' ? 'ProofX_Bulk_Report.pdf' : 'ProofX_Report.pdf'
                                 const a = document.createElement('a')
                                 a.href = file
                                 a.download = name

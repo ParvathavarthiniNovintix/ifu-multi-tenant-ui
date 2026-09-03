@@ -12,6 +12,7 @@ type Props = {
   userRole?: 'admin' | 'workspace-admin' | 'proofreader'
   onSetFiles?: (master: string, revised: string, bulk: boolean) => void
   onSetLrfFlowActive?: (active: boolean) => void
+  onSetIfuFlowActive?: (active: boolean) => void
 }
 
 const teamMap: Record<string, { name: string; color: string; lightColor: string }> = {
@@ -58,6 +59,7 @@ export default function AdminHistoryScreen({
   userRole,
   onSetFiles,
   onSetLrfFlowActive,
+  onSetIfuFlowActive,
 }: Props) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
   const [page, setPage] = useState(1)
@@ -245,6 +247,7 @@ export default function AdminHistoryScreen({
                             const isBulk = row.mode === 'BULK'
                             onSetFiles?.(isBulk ? 'Master.pdf' : row.master, isBulk ? 'Revised.pdf' : row.revised, isBulk)
                             onSetLrfFlowActive?.(row.workflow === 'PROOF READING')
+                            onSetIfuFlowActive?.(row.workflow === 'IFU DOCUMENT COMPARISON')
                             onNavigate('analysis')
                           }}
                           className="flex items-center justify-center rounded hover:opacity-70 cursor-pointer"

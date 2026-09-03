@@ -8,6 +8,7 @@ type Props = {
   previousScreen?: Screen
   onSetFiles?: (master: string, revised: string, bulk: boolean) => void
   onSetLrfFlowActive?: (active: boolean) => void
+  onSetIfuFlowActive?: (active: boolean) => void
 }
 
 const rows = [
@@ -34,7 +35,7 @@ function getPairFiles(row: { pairs: number; skipped: number }) {
   }))
 }
 
-export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, onSetFiles, onSetLrfFlowActive }: Props) {
+export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, onSetFiles, onSetLrfFlowActive, onSetIfuFlowActive }: Props) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
   const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'IFU DOCUMENT COMPARISON'>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
@@ -204,6 +205,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                                   // For bulk history preview, pass the first pair's names; historyPreview=true → 2-pair view
                                   onSetFiles?.(isBulk ? row.bulkMasterKey : row.master, isBulk ? row.bulkRevisedKey : row.revised, isBulk)
                                   onSetLrfFlowActive?.(row.workflow === 'PROOF READING')
+                                  onSetIfuFlowActive?.(row.workflow === 'IFU DOCUMENT COMPARISON')
                                   onNavigate('analysis')
                                 }}
                                 className="flex items-center justify-center rounded hover:opacity-70 cursor-pointer"
@@ -218,9 +220,10 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                             <td className="px-3 py-3">
                               <button
                                 onClick={() => {
+                                  const isIfu = row.workflow === 'IFU DOCUMENT COMPARISON'
                                   const isLrfBulk = row.mode === 'BULK' && row.workflow === 'PROOF READING'
-                                  const file = isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
-                                  const name = isLrfBulk ? 'ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? 'ProofX_Bulk_Report.pdf' : 'ProofX_Report.pdf'
+                                  const file = isIfu ? '/IFU-Report.pdf' : isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
+                                  const name = isIfu ? 'IFU-Report.pdf' : isLrfBulk ? 'ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? 'ProofX_Bulk_Report.pdf' : 'ProofX_Report.pdf'
                                   const a = document.createElement('a')
                                   a.href = file
                                   a.download = name
