@@ -64,6 +64,8 @@ const historyRows = [
   { datetime: 'Jul 21, 2026, 10:28 AM', proofreader: 'Dhivya',   master: 'Master.pdf',  revised: 'Revised.pdf', mode: 'SINGLE', pairs: 1,  findings: 3,  workflow: 'PROOF READING',     status: 'PASS' },
   { datetime: 'Jul 20, 2026, 03:12 PM', proofreader: 'Shrvaani', master: '→ 2 files', revised: '→ 2 files', mode: 'BULK',   pairs: 2, findings: 0,  workflow: 'VISUAL COMPARISON', status: 'PASS' },
   { datetime: 'Jul 19, 2026, 08:44 AM', proofreader: 'Rooban',   master: 'LCN-label.pdf', revised: 'LCN-label-v2.pdf', mode: 'SINGLE', pairs: 1, findings: 5, workflow: 'PROOF READING', status: 'PASS' },
+  { datetime: 'Aug 01, 2026, 09:38 AM', proofreader: 'Athmika',  master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, findings: 11, workflow: 'IFU DOCUMENT COMPARISON', status: 'PASS' },
+  { datetime: 'Aug 03, 2026, 03:24 PM', proofreader: 'Dhivya',   master: '→ 2 files', revised: '→ 2 files', mode: 'BULK', pairs: 2, findings: 9, workflow: 'IFU DOCUMENT COMPARISON', status: 'PASS' },
 ]
 
 const analyticsData = [
@@ -86,7 +88,7 @@ function Badge({ children, bg, color }: { children: ReactNode; bg: string; color
 
 export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProofreader, onSetFiles, onSetLrfFlowActive }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING'>('ALL')
+  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'IFU DOCUMENT COMPARISON'>('ALL')
   const [hoveredDataPoint, setHoveredDataPoint] = useState<number | null>(null)
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
 
@@ -296,7 +298,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
 
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-1.5">
-                {(['ALL', 'VISUAL COMPARISON', 'PROOF READING'] as const).map(w => (
+                {(['ALL', 'VISUAL COMPARISON', 'PROOF READING', 'IFU DOCUMENT COMPARISON'] as const).map(w => (
                   <button
                     key={w}
                     onClick={() => setWorkflowFilter(w)}
@@ -306,7 +308,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
                       color: workflowFilter === w ? 'white' : C.muted
                     }}
                   >
-                    {w === 'ALL' ? 'All Workflows' : w === 'VISUAL COMPARISON' ? 'Visual Compare' : 'Proof Reading'}
+                    {w === 'ALL' ? 'All Workflows' : w === 'VISUAL COMPARISON' ? 'Visual Compare' : w === 'PROOF READING' ? 'Proof Reading' : 'IFU Document Comparison'}
                   </button>
                 ))}
               </div>
@@ -400,7 +402,10 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
                         <td className="px-2 py-3 text-xs text-center text-slate-700">{row.pairs}</td>
                         <td className="px-2 py-3 text-xs text-center font-bold text-slate-800">{row.findings}</td>
                         <td className="px-2 py-3">
-                          <Badge bg={row.workflow === 'VISUAL COMPARISON' ? C.orangeLight : C.navyLight} color={row.workflow === 'VISUAL COMPARISON' ? C.orangeText : C.navy}>
+                          <Badge
+                            bg={row.workflow === 'VISUAL COMPARISON' ? C.orangeLight : row.workflow === 'IFU DOCUMENT COMPARISON' ? '#f1edff' : C.navyLight}
+                            color={row.workflow === 'VISUAL COMPARISON' ? C.orangeText : row.workflow === 'IFU DOCUMENT COMPARISON' ? '#5b3ecf' : C.navy}
+                          >
                             {row.workflow}
                           </Badge>
                         </td>

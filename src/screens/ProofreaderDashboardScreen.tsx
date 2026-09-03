@@ -62,6 +62,28 @@ const recentRuns = [
     workflow: 'VISUAL COMPARISON',
     status: 'PASS',
   },
+  {
+    datetime: 'Aug 1, 2026, 09:38 AM',
+    master: 'IFU-current.pdf',
+    revised: 'IFU-revised.pdf',
+    mode: 'SINGLE',
+    pairs: 1,
+    skipped: 0,
+    findings: 11,
+    workflow: 'IFU DOCUMENT COMPARISON',
+    status: 'PASS',
+  },
+  {
+    datetime: 'Aug 3, 2026, 03:24 PM',
+    master: '→ 2 files',
+    revised: '→ 2 files',
+    mode: 'BULK',
+    pairs: 2,
+    skipped: 1,
+    findings: 9,
+    workflow: 'IFU DOCUMENT COMPARISON',
+    status: 'PASS',
+  },
 ]
 
 function ModeBadge({ mode }: { mode: string }) {
@@ -81,12 +103,13 @@ function ModeBadge({ mode }: { mode: string }) {
 
 function WorkflowBadge({ workflow }: { workflow: string }) {
   const isVc = workflow === 'VISUAL COMPARISON'
+  const isIfu = workflow === 'IFU DOCUMENT COMPARISON'
   return (
     <span
       className="px-2 py-0.5 rounded text-xs font-semibold"
       style={{
-        backgroundColor: isVc ? C.orangeLight : C.navyLight,
-        color: isVc ? C.orangeText : C.navy,
+        backgroundColor: isVc ? C.orangeLight : isIfu ? '#f0ebff' : C.navyLight,
+        color: isVc ? C.orangeText : isIfu ? '#5b3ecf' : C.navy,
       }}
     >
       {workflow}
@@ -110,7 +133,7 @@ import { useState } from 'react'
 
 export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowActive, onSetFiles }: Props) {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
-  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING'>('ALL')
+  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'IFU DOCUMENT COMPARISON'>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
 
   const filteredRuns = recentRuns.filter(r => {
@@ -142,7 +165,7 @@ export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowAct
         </div>
 
         {/* Workflow cards */}
-        <div className="grid grid-cols-2 gap-6 w-full mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 w-full mb-10">
           {/* Card 1 — Visual Comparison */}
           <div className="p-6 flex flex-col border border-gray-200 border-t-4 border-t-[#ea580c] bg-white">
             <div className="flex items-start justify-between mb-4">
@@ -216,6 +239,50 @@ export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowAct
               Start with your changes <ArrowRight size={14} />
             </button>
           </div>
+
+          {/* Card 3 — IFU Document Comparison */}
+          <div className="p-6 flex flex-col border border-gray-200 border-t-4 border-t-[#5b3ecf] bg-white">
+            <div className="flex items-start justify-between mb-4">
+              <div
+                className="flex items-center justify-center rounded-lg"
+                style={{ width: 44, height: 44, backgroundColor: '#f1edff' }}
+              >
+                <FileText size={22} className="text-[#5b3ecf]" />
+              </div>
+              <span
+                className="text-xs font-bold px-2.5 py-1 rounded-full border border-[#5b3ecf]/20"
+                style={{ backgroundColor: '#f1edff', color: '#5b3ecf' }}
+              >
+                IFU · DOCUMENT CHECK
+              </span>
+            </div>
+            <h2 className="font-bold text-base mb-2 text-gray-900">Document comparison</h2>
+            <p className="text-sm mb-4 text-gray-500 leading-relaxed">
+              Upload a current and revised document pair. The tool identifies differences across the documents, helps you review the findings, and lets you export a complete inspection report.
+            </p>
+            <ul className="flex flex-col gap-2 mb-6">
+              {[
+                'Word & PDF document support',
+                'Cover-page identity validation',
+                'Language-set & directory checks',
+                'Text, Figure, Table & Matrix Code differences',
+                'Representation changes (Image/Table ↔ Live Text)',
+                'Exportable Inspection Report',
+              ].map(f => (
+                <li key={f} className="flex items-center gap-2 text-sm text-gray-500">
+                  <CheckCircle2 size={16} className="text-[#5b3ecf] shrink-0" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => onNavigate('upload-comparison')}
+              className="mt-auto w-full py-2.5 rounded-lg text-sm font-bold text-white flex items-center justify-center gap-2 transition-colors cursor-pointer hover:opacity-95"
+              style={{ backgroundColor: '#5b3ecf' }}
+            >
+              Start Document Comparison <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Recent Runs */}
@@ -253,7 +320,7 @@ export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowAct
           {/* Filters */}
           <div className="flex items-center justify-between gap-4 mb-3">
             <div className="flex items-center gap-1.5">
-              {(['ALL', 'VISUAL COMPARISON', 'PROOF READING'] as const).map(w => (
+              {(['ALL', 'VISUAL COMPARISON', 'PROOF READING', 'IFU DOCUMENT COMPARISON'] as const).map(w => (
                 <button
                   key={w}
                   onClick={() => setWorkflowFilter(w)}
@@ -263,7 +330,7 @@ export default function ProofreaderDashboardScreen({ onNavigate, onSetLrfFlowAct
                     color: workflowFilter === w ? C.white : C.grayText,
                   }}
                 >
-                  {w}
+                  {w === 'IFU DOCUMENT COMPARISON' ? 'IFU Document Comparison' : w}
                 </button>
               ))}
             </div>

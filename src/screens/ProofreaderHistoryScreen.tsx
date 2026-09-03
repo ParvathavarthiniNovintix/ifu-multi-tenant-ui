@@ -18,6 +18,8 @@ const rows = [
   { datetime: 'Jul 14, 2026, 03:45 PM', master: 'LCN-label.pdf', revised: 'LCN-label-v2.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 5, workflow: 'PROOF READING', status: 'PASS', expandable: false, bulkMasterKey: 'LCN-label.pdf', bulkRevisedKey: 'LCN-label-v2.pdf' },
   { datetime: 'Jul 10, 2026, 10:20 AM', master: '→ 2 files', revised: '→ 2 files', mode: 'BULK', pairs: 2, skipped: 0, findings: 9, workflow: 'VISUAL COMPARISON', status: 'PASS', expandable: true, bulkMasterKey: 'Master.pdf', bulkRevisedKey: 'Revised.pdf' },
   { datetime: 'Jul 7, 2026, 09:05 AM', master: 'Master.pdf', revised: 'Revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 3, workflow: 'PROOF READING', status: 'PASS', expandable: false, bulkMasterKey: 'Master.pdf', bulkRevisedKey: 'Revised.pdf' },
+  { datetime: 'Aug 1, 2026, 09:38 AM', master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 11, workflow: 'IFU DOCUMENT COMPARISON', status: 'PASS', expandable: false, bulkMasterKey: 'IFU-current.pdf', bulkRevisedKey: 'IFU-revised.pdf' },
+  { datetime: 'Aug 3, 2026, 03:24 PM', master: '→ 2 files', revised: '→ 2 files', mode: 'BULK', pairs: 2, skipped: 1, findings: 9, workflow: 'IFU DOCUMENT COMPARISON', status: 'PASS', expandable: true, bulkMasterKey: 'IFU-current.pdf', bulkRevisedKey: 'IFU-revised.pdf' },
 ]
 
 const pairNames = [
@@ -34,7 +36,7 @@ function getPairFiles(row: { pairs: number; skipped: number }) {
 
 export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, onSetFiles, onSetLrfFlowActive }: Props) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
-  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING'>('ALL')
+  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'IFU DOCUMENT COMPARISON'>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [page] = useState(1)
 
@@ -102,7 +104,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
             {/* Filters */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-1.5">
-                {(['ALL', 'VISUAL COMPARISON', 'PROOF READING'] as const).map(w => (
+                {(['ALL', 'VISUAL COMPARISON', 'PROOF READING', 'IFU DOCUMENT COMPARISON'] as const).map(w => (
                   <button
                     key={w}
                     onClick={() => setWorkflowFilter(w)}
@@ -112,7 +114,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                       color: workflowFilter === w ? C.white : C.grayText,
                     }}
                   >
-                    {w}
+                    {w === 'IFU DOCUMENT COMPARISON' ? 'IFU Document Comparison' : w}
                   </button>
                 ))}
               </div>
