@@ -181,13 +181,14 @@ const newFindingsList: Finding[] = [
   }
 ]
 
+// Note: red/green are reserved for PASS/FAIL status only — no finding category uses them.
 const typeColors: Record<string, { bg: string; text: string; color: string }> = {
   text: { bg: '#EFF6FF', text: '#1E40AF', color: '#378ADD' },
-  graphics: { bg: '#FEF2F2', text: '#991B1B', color: '#DC2626' },
+  graphics: { bg: '#F0FDFA', text: '#115E59', color: '#0D9488' },
   barcode: { bg: '#FFFBEB', text: '#92400E', color: '#BA7517' },
   change: { bg: '#EEF2FF', text: '#3730A3', color: '#6366F1' },
-  deletion: { bg: '#FEF2F2', text: '#991B1B', color: '#DC2626' },
-  insertion: { bg: '#ECFDF5', text: '#065F46', color: '#10B981' },
+  deletion: { bg: '#F1F5F9', text: '#334155', color: '#64748B' },
+  insertion: { bg: '#ECFEFF', text: '#155E75', color: '#0891B2' },
   case: { bg: '#FFFBEB', text: '#92400E', color: '#D97706' },
   hyphen: { bg: '#F0F9FF', text: '#075985', color: '#0EA5E9' },
   'line-break': { bg: '#FDF4FF', text: '#86198F', color: '#C026D3' },
@@ -195,10 +196,28 @@ const typeColors: Record<string, { bg: string; text: string; color: string }> = 
   bold: { bg: '#F5F3FF', text: '#5B21B6', color: '#7C3AED' },
   italic: { bg: '#ECFEFF', text: '#155E75', color: '#06B6D4' },
   'font-type': { bg: '#FEF2F8', text: '#9D174D', color: '#DB2777' },
-  underline: { bg: '#F0FDF4', text: '#166534', color: '#16A34A' },
+  underline: { bg: '#FFFBEB', text: '#78350F', color: '#92400E' },
 }
 
-// IFU document-comparison categories (no bulk upload / sidebar for this flow)
+// Languages detected in the IFU document pair (mock — real detection would come from the backend).
+// Page numbers are keyed off the revised document's numbering; the master side clamps to its own page count.
+const IFU_LANGUAGES: { code: string; label: string; page: number }[] = [
+  { code: 'EN', label: 'English', page: 1 },
+  { code: 'DE', label: 'German', page: 2 },
+  { code: 'DA', label: 'Danish', page: 3 },
+  { code: 'FI', label: 'Finnish', page: 4 },
+  { code: 'FR', label: 'French', page: 5 },
+  { code: 'ES', label: 'Spanish', page: 6 },
+  { code: 'ID', label: 'Indonesian', page: 7 },
+  { code: 'IT', label: 'Italian', page: 8 },
+  { code: 'NL', label: 'Dutch', page: 9 },
+  { code: 'NO', label: 'Norwegian', page: 10 },
+  { code: 'PT', label: 'Portuguese', page: 11 },
+  { code: 'RU', label: 'Russian', page: 12 },
+  { code: 'SV', label: 'Swedish', page: 13 },
+]
+
+// IFU document-comparison categories (no bulk upload for this flow)
 const IFU_CATEGORIES: { id: IfuCategory; label: string }[] = [
   { id: 'change', label: 'Change' },
   { id: 'deletion', label: 'Deletion' },
@@ -1071,25 +1090,23 @@ function LabelPanel({
   onPdfPageCountChange?: (count: number) => void
 }) {
   const scale = zoom / 100
-  const headerBg = variant === 'master' ? '#FEF2F2' : '#EFF6FF'
-  const dotColor = variant === 'master' ? '#E02424' : '#1A56DB'
+  // Current-version accent follows each module's own theme color (no red) — purple for IFU, orange for labels
+  const masterAccent = docLabel === 'IFU' ? '#475569' : '#ea580c'
+  const masterAccentBg = docLabel === 'IFU' ? '#F1F5F9' : '#fff3eb'
+  const headerBg = variant === 'master' ? masterAccentBg : '#EFF6FF'
+  const dotColor = variant === 'master' ? masterAccent : '#1A56DB'
   const versionLabel = variant === 'master' ? `CURRENT VERSION ${docLabel}` : `REVISED VERSION ${docLabel}`
 
   // Label source dimensions are approximately 680x900 to ensure full width and height render
   const width = 680
   const height = 900
 
-  // Multi-page PDF navigation (IFU documents can have a different page count per version)
-  const [pdfPageCount, setPdfPageCount] = useState(1)
+  // Multi-page PDF navigation (IFU documents can have a different page count per version) —
+  // page controls live in the footer now, so this panel just forwards the loaded page count upward.
   useEffect(() => {
     onPdfPageChange?.(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileUrl])
-
-  const handleDocLoaded = (count: number) => {
-    setPdfPageCount(count)
-    onPdfPageCountChange?.(count)
-  }
 
   // Click-and-drag to pan the label
   useEffect(() => {
@@ -1142,7 +1159,7 @@ function LabelPanel({
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       {/* Panel header */}
       <div
-        className="h-11 px-4 flex items-center justify-between flex-shrink-0"
+        className="min-h-11 px-4 py-1.5 flex items-center justify-between flex-wrap gap-y-1 flex-shrink-0"
         style={{
           backgroundColor: headerBg,
           borderBottom: `2px solid ${dotColor}`,
@@ -1153,34 +1170,9 @@ function LabelPanel({
           <span className="text-sm font-bold uppercase tracking-wide flex-shrink-0" style={{ color: dotColor }}>
             {versionLabel}
           </span>
-          <span className="text-xs text-[#5F6368] truncate">· {title}</span>
+          <span className="text-xs text-[#5F6368] truncate min-w-0">· {title}</span>
         </div>
         <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-          {fileKind === 'pdf' && pdfPageCount > 1 && (
-            <div className="flex items-center gap-1 mr-1">
-              <button
-                onClick={() => onPdfPageChange?.(p => Math.max(1, p - 1))}
-                disabled={pdfPage <= 1}
-                title="Previous page"
-                className={`h-6 w-6 flex items-center justify-center rounded border transition-colors ${pdfPage <= 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                style={{ borderColor: dotColor, color: dotColor, backgroundColor: 'transparent' }}
-              >
-                ‹
-              </button>
-              <span className="text-[11px] font-semibold px-1" style={{ color: dotColor }}>
-                Page {pdfPage} / {pdfPageCount}
-              </span>
-              <button
-                onClick={() => onPdfPageChange?.(p => Math.min(pdfPageCount, p + 1))}
-                disabled={pdfPage >= pdfPageCount}
-                title="Next page"
-                className={`h-6 w-6 flex items-center justify-center rounded border transition-colors ${pdfPage >= pdfPageCount ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                style={{ borderColor: dotColor, color: dotColor, backgroundColor: 'transparent' }}
-              >
-                ›
-              </button>
-            </div>
-          )}
           <button
             onClick={onReset}
             disabled={loading}
@@ -1208,7 +1200,7 @@ function LabelPanel({
         /* Annotated document canvas — same pan/zoom interaction as the label image viewer */
         <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto bg-[#F1F3F4] p-6 no-scrollbar cursor-grab select-none">
           <div className="flex justify-center">
-            <PdfPageCanvas fileUrl={fileUrl} scale={scale} pageNumber={pdfPage} onDocLoaded={handleDocLoaded} />
+            <PdfPageCanvas fileUrl={fileUrl} scale={scale} pageNumber={pdfPage} onDocLoaded={onPdfPageCountChange} />
           </div>
         </div>
       ) : (
@@ -1276,6 +1268,13 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
   const isIfu = documentType === 'ifu'
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'all' | 'text' | 'graphics' | 'barcode' | IfuCategory>('all')
+  // IFU findings support multi-select category filtering (empty set = show all)
+  const [selectedIfuCategories, setSelectedIfuCategories] = useState<Set<IfuCategory>>(new Set())
+  const toggleIfuCategory = (id: IfuCategory) => setSelectedIfuCategories(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
   const [activeStatus, setActiveStatus] = useState<'all' | 'expected' | 'unexpected'>('all')
   const [exporting, setExporting] = useState(false)
   const [syncScroll, setSyncScroll] = useState(true)
@@ -1293,10 +1292,10 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
   const masterRef = useRef<HTMLDivElement>(null)
   const revisedRef = useRef<HTMLDivElement>(null)
 
-  // IFU document comparison has no bulk upload, so it never shows the pairs sidebar
+  // IFU document comparison has no bulk upload — it shows a Languages sidebar instead of the pairs list
   const isTwentyPairs = !isIfu && !!bulkMode && !historyPreview;
   const isTwoPairs = !isIfu && !!bulkMode && !!historyPreview;
-  const hasSidebar = isTwentyPairs || isTwoPairs;
+  const hasSidebar = isIfu || isTwentyPairs || isTwoPairs;
   const [activePairIdx, setActivePairIdx] = useState(1);
 
   // Generate pairs list dynamically
@@ -1334,7 +1333,7 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
         };
       });
 
-  const currentPair = hasSidebar ? bulkPairs[activePairIdx - 1] : null;
+  const currentPair = (hasSidebar && !isIfu) ? bulkPairs[activePairIdx - 1] : null;
 
   // Determine actual files and paths being displayed
   const isMasterPdf = currentPair ? (currentPair.actualMaster !== 'Master.pdf') : (masterFilename !== 'Master.pdf');
@@ -1405,7 +1404,9 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
   const labelsLoading = activePairLoad.loading
 
   const filteredFindings = activeFindingsList
-    .filter(f => activeTab === 'all' || f.type === activeTab)
+    .filter(f => isIfu
+      ? (selectedIfuCategories.size === 0 || selectedIfuCategories.has(f.type as IfuCategory))
+      : (activeTab === 'all' || f.type === activeTab))
     .filter(f => activeStatus === 'all' || f.classification?.toLowerCase() === activeStatus)
 
   // Fit zoom function helper
@@ -1564,7 +1565,7 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
     setTimeout(() => setExporting(false), 1500)
   }
 
-  const totalCount = hasSidebar ? bulkPairs.length : 1;
+  const totalCount = (hasSidebar && !isIfu) ? bulkPairs.length : 1;
   const analysedCount = Object.values(pairLoadState).filter(s => !s.loading && s.progress === 100).length;
   const analysedPercent = Math.round((analysedCount / totalCount) * 100);
 
@@ -1617,14 +1618,39 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
 
       {/* Main content grid - docked side-by-side with no gap/padding */}
       <div className="flex flex-1 overflow-hidden min-h-0 min-w-0">
-        {/* Left LABEL PAIRS sidebar */}
+        {/* Left sidebar: language directory for IFU, label pairs for bulk label runs */}
         {hasSidebar && (
           <aside className="w-[200px] border-r border-[#E0E0E0] bg-white flex flex-col flex-shrink-0">
             <div className="px-4 py-3 border-b border-[#E0E0E0] text-xs uppercase tracking-wide text-[#5F6368]">
-              Label pairs
+              {isIfu ? 'Languages' : 'Label pairs'}
             </div>
             <div className="flex-1 overflow-y-auto">
-              {bulkPairs.map(pair => {
+              {isIfu ? (
+                IFU_LANGUAGES.map(lang => {
+                  const targetMasterPage = Math.min(lang.page, masterPdfPageCount)
+                  const targetRevisedPage = Math.min(lang.page, revisedPdfPageCount)
+                  const isActive = masterPdfPage === targetMasterPage && revisedPdfPage === targetRevisedPage
+                  return (
+                    <button
+                      key={lang.code}
+                      onClick={() => { setMasterPdfPage(targetMasterPage); setRevisedPdfPage(targetRevisedPage) }}
+                      className={`w-full text-left px-4 py-3 border-b border-[#E0E0E0] flex items-center justify-between text-sm transition-colors cursor-pointer ${
+                        isActive
+                          ? 'bg-[#F1F3F4] border-l-2 border-l-[#1C2E59]'
+                          : 'hover:bg-[#F1F3F4] border-l-2 border-l-transparent'
+                      }`}
+                    >
+                      <span className="text-[#1A1A2E]">{lang.label}</span>
+                      <span
+                        className="text-[11px] px-1.5 py-0.5 rounded-full font-bold uppercase shrink-0"
+                        style={{ backgroundColor: isActive ? '#1C2E59' : '#F1F3F4', color: isActive ? '#FFFFFF' : '#5F6368' }}
+                      >
+                        {lang.code}
+                      </span>
+                    </button>
+                  )
+                })
+              ) : bulkPairs.map(pair => {
                 const isActive = activePairIdx === pair.idx
                 const state = pairLoadState[pair.idx] ?? { loading: false, progress: 100 }
                 const pairLoading = state.loading
@@ -1679,11 +1705,11 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
             <span
               className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
               style={{
-                backgroundColor: isIfu ? '#f1edff' : lrfFlowActive ? C.navyLight : C.orangeLight,
-                color: isIfu ? '#5b3ecf' : lrfFlowActive ? C.navy : C.orangeText,
+                backgroundColor: isIfu ? '#F1F5F9' : lrfFlowActive ? C.navyLight : C.orangeLight,
+                color: isIfu ? '#475569' : lrfFlowActive ? C.navy : C.orangeText,
               }}
             >
-              {isIfu ? 'IFU Document Comparison' : lrfFlowActive ? 'Proof Reading' : 'Visual Comparison'}
+              {isIfu ? 'Document Comparison' : lrfFlowActive ? 'Proof Reading' : 'Visual Comparison'}
             </span>
           </div>
 
@@ -1755,29 +1781,29 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
               <span className="font-semibold text-[#1A1A2E] text-sm">Findings</span>
               <span className="text-xs text-[#5F6368]">
                 <span className="text-[#1A1A2E] font-medium">{filteredFindings.length}</span>
-                {(activeTab !== 'all' || activeStatus !== 'all') && (
+                {((isIfu ? selectedIfuCategories.size > 0 : activeTab !== 'all') || activeStatus !== 'all') && (
                   <span className="text-[#5F6368]"> / {activeFindingsList.length}</span>
                 )}{' '}
                 {activeFindingsList.length === 1 ? 'difference' : 'differences'}
               </span>
             </div>
 
-            {/* Category tabs */}
+            {/* Category tabs — IFU supports selecting multiple categories at once */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <FilterPill
                 label="All"
-                active={activeTab === 'all'}
+                active={isIfu ? selectedIfuCategories.size === 0 : activeTab === 'all'}
                 color="#1C2E59"
-                onClick={() => setActiveTab('all')}
+                onClick={() => isIfu ? setSelectedIfuCategories(new Set()) : setActiveTab('all')}
               />
               {isIfu ? (
                 IFU_CATEGORIES.map(cat => (
                   <FilterPill
                     key={cat.id}
                     label={cat.label}
-                    active={activeTab === cat.id}
+                    active={selectedIfuCategories.has(cat.id)}
                     color={typeColors[cat.id].color}
-                    onClick={() => setActiveTab(cat.id)}
+                    onClick={() => toggleIfuCategory(cat.id)}
                   />
                 ))
               ) : (
@@ -1791,7 +1817,7 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
                   <FilterPill
                     label="Graphics"
                     active={activeTab === 'graphics'}
-                    color="#DC2626"
+                    color={typeColors.graphics.color}
                     onClick={() => setActiveTab('graphics')}
                   />
                   <FilterPill
@@ -1842,12 +1868,14 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
                 ? IFU_CATEGORIES.map(c => ({ id: c.id, label: c.label, color: typeColors[c.id].color }))
                 : ([
                     { id: 'text', label: 'Text', color: '#378ADD' },
-                    { id: 'graphics', label: 'Graphics', color: '#DC2626' },
+                    { id: 'graphics', label: 'Graphics', color: typeColors.graphics.color },
                     { id: 'barcode', label: 'Barcode', color: '#BA7517' }
                   ] as const);
 
               return cats.map(cat => {
-                if (activeTab !== 'all' && activeTab !== cat.id) return null;
+                if (isIfu) {
+                  if (selectedIfuCategories.size > 0 && !selectedIfuCategories.has(cat.id as IfuCategory)) return null;
+                } else if (activeTab !== 'all' && activeTab !== cat.id) return null;
                 const items = filteredFindings.filter(f => f.type === cat.id);
 
                 return (
@@ -1931,7 +1959,7 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
                 ? `Pair ${activePairIdx} of 2`
                 : 'Analysis complete'}
             </span>
-            {hasSidebar && (
+            {hasSidebar && !isIfu && (
               <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                 <span className="font-semibold text-slate-500">
                   Analysed: {analysedCount} / {totalCount} labels ({analysedPercent}% complete)
@@ -1948,64 +1976,100 @@ export default function AnalysisScreen({ onNavigate, previousScreen, lrfFlowActi
         </div>
 
         <div className="flex items-center gap-4">
-          {!isIfu && (
-            <>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <span>Sync scroll & zoom</span>
+          {isIfu && (masterPdfPageCount > 1 || revisedPdfPageCount > 1) && (
+            <div className="flex items-center gap-3 pr-4 border-r border-gray-200">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: '#475569' }}>Current</span>
                 <button
-                  onClick={() => {
-                    setSyncScroll((s) => {
-                      if (!s) setRevisedZoom(masterZoom);
-                      return !s;
-                    });
-                  }}
-                  className={`relative inline-flex h-4 w-7 rounded-full transition-colors ${
-                    syncScroll ? "bg-[#F07922]" : "bg-[#F1F3F4] border border-[#E0E0E0]"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-white border border-[#E0E0E0] transition-transform ${
-                      syncScroll ? "translate-x-3.5" : "translate-x-0.5"
-                    }`}
-                  />
-                </button>
-              </label>
-
-              <div className="flex items-center gap-2">
+                  onClick={() => setMasterPdfPage(p => Math.max(1, p - 1))}
+                  disabled={masterPdfPage <= 1}
+                  title="Previous page"
+                  className={`h-5 w-5 flex items-center justify-center rounded border text-xs ${masterPdfPage <= 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                  style={{ borderColor: '#475569', color: '#475569' }}
+                >‹</button>
+                <span className="text-[11px] font-semibold w-8 text-center" style={{ color: '#475569' }}>{masterPdfPage}/{masterPdfPageCount}</span>
                 <button
-                  onClick={() => {
-                    setMasterZoom((z) => Math.max(10, z - 10))
-                    setRevisedZoom((z) => Math.max(10, z - 10))
-                  }}
-                  className="h-6 w-6 rounded border border-[#E0E0E0] hover:bg-[#F1F3F4] flex items-center justify-center font-semibold text-slate-700 cursor-pointer"
-                >
-                  −
-                </button>
-                {syncScroll ? (
-                  <span className="w-10 text-center text-[#1A1A2E] font-medium">{masterZoom}%</span>
-                ) : (
-                  <span className="flex items-center gap-1 text-[#1A1A2E] text-[11px] font-medium">
-                    <span className="text-[#E02424]">{masterZoom}%</span>
-                    <span className="text-slate-300">/</span>
-                    <span className="text-[#1A56DB]">{revisedZoom}%</span>
-                  </span>
-                )}
-                <button
-                  onClick={() => {
-                    setMasterZoom((z) => Math.min(200, z + 10))
-                    setRevisedZoom((z) => Math.min(200, z + 10))
-                  }}
-                  className="h-6 w-6 rounded border border-[#E0E0E0] hover:bg-[#F1F3F4] flex items-center justify-center font-semibold text-slate-700 cursor-pointer"
-                >
-                  +
-                </button>
+                  onClick={() => setMasterPdfPage(p => Math.min(masterPdfPageCount, p + 1))}
+                  disabled={masterPdfPage >= masterPdfPageCount}
+                  title="Next page"
+                  className={`h-5 w-5 flex items-center justify-center rounded border text-xs ${masterPdfPage >= masterPdfPageCount ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                  style={{ borderColor: '#475569', color: '#475569' }}
+                >›</button>
               </div>
-            </>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase tracking-wide font-semibold text-[#1A56DB]">Revised</span>
+                <button
+                  onClick={() => setRevisedPdfPage(p => Math.max(1, p - 1))}
+                  disabled={revisedPdfPage <= 1}
+                  title="Previous page"
+                  className={`h-5 w-5 flex items-center justify-center rounded border text-xs ${revisedPdfPage <= 1 ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                  style={{ borderColor: '#1A56DB', color: '#1A56DB' }}
+                >‹</button>
+                <span className="text-[11px] font-semibold w-8 text-center text-[#1A56DB]">{revisedPdfPage}/{revisedPdfPageCount}</span>
+                <button
+                  onClick={() => setRevisedPdfPage(p => Math.min(revisedPdfPageCount, p + 1))}
+                  disabled={revisedPdfPage >= revisedPdfPageCount}
+                  title="Next page"
+                  className={`h-5 w-5 flex items-center justify-center rounded border text-xs ${revisedPdfPage >= revisedPdfPageCount ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                  style={{ borderColor: '#1A56DB', color: '#1A56DB' }}
+                >›</button>
+              </div>
+            </div>
           )}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span>Sync scroll & zoom</span>
+            <button
+              onClick={() => {
+                setSyncScroll((s) => {
+                  if (!s) setRevisedZoom(masterZoom);
+                  return !s;
+                });
+              }}
+              className={`relative inline-flex h-4 w-7 rounded-full transition-colors ${
+                syncScroll ? "bg-[#1C2E59]" : "bg-[#F1F3F4] border border-[#E0E0E0]"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-3 w-3 rounded-full bg-white border border-[#E0E0E0] transition-transform ${
+                  syncScroll ? "translate-x-3.5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </label>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setMasterZoom((z) => Math.max(10, z - 10))
+                setRevisedZoom((z) => Math.max(10, z - 10))
+              }}
+              className="h-6 w-6 rounded border border-[#E0E0E0] hover:bg-[#F1F3F4] flex items-center justify-center font-semibold text-slate-700 cursor-pointer"
+            >
+              −
+            </button>
+            {syncScroll ? (
+              <span className="w-10 text-center text-[#1A1A2E] font-medium">{masterZoom}%</span>
+            ) : (
+              <span className="flex items-center gap-1 text-[#1A1A2E] text-[11px] font-medium">
+                <span style={{ color: isIfu ? '#475569' : '#ea580c' }}>{masterZoom}%</span>
+                <span className="text-slate-300">/</span>
+                <span className="text-[#1A56DB]">{revisedZoom}%</span>
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setMasterZoom((z) => Math.min(200, z + 10))
+                setRevisedZoom((z) => Math.min(200, z + 10))
+              }}
+              className="h-6 w-6 rounded border border-[#E0E0E0] hover:bg-[#F1F3F4] flex items-center justify-center font-semibold text-slate-700 cursor-pointer"
+            >
+              +
+            </button>
+          </div>
 
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 px-7 py-2.5 text-[13px] font-bold uppercase tracking-widest rounded-lg shadow-sm bg-[#F07922] hover:bg-[#D9660C] text-white transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-7 py-2.5 text-[13px] font-bold uppercase tracking-widest rounded-lg shadow-sm bg-[#1C2E59] hover:bg-[#141c38] text-white transition-colors cursor-pointer"
           >
             {exporting ? 'GENERATING PDF…' : 'EXPORT REPORT'}
           </button>

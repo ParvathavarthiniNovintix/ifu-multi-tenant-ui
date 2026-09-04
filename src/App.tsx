@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import LoginScreen from './screens/LoginScreen'
 import ProofreaderDashboardScreen from './screens/ProofreaderDashboardScreen'
+import LabelWorkflowScreen from './screens/LabelWorkflowScreen'
 import UploadComparisonScreen from './screens/UploadComparisonScreen'
 import UploadIfuScreen from './screens/UploadIfuScreen'
 import AnalysisScreen from './screens/AnalysisScreen'
@@ -21,6 +22,7 @@ export type Screen =
   | 'password-reset'
   | 'proofreader-history'
   | 'proofreader-dashboard'
+  | 'label-workflow'
   | 'upload-comparison'
   | 'upload-ifu'
   | 'analysis'
@@ -39,6 +41,8 @@ export default function App() {
   const [profileRole, setProfileRole] = useState<'admin' | 'proofreader' | 'workspace-admin'>('admin')
   const [previousScreen, setPreviousScreen] = useState<Screen>('login')
   const [selectedProofreader, setSelectedProofreader] = useState<string | null>(null)
+  // Tenant/workspace admin module switcher (Label vs IFU) — shared across dashboard & history
+  const [adminModule, setAdminModule] = useState<'label' | 'ifu'>('label')
 
   // LRF states
   const [lrfFlowActive, setLrfFlowActive] = useState(false)
@@ -123,13 +127,29 @@ export default function App() {
       return <PasswordResetScreen onNavigate={navigate} />
 
     case 'proofreader-dashboard':
-      return <ProofreaderDashboardScreen onNavigate={navigate} onSetLrfFlowActive={setLrfFlowActive} onSetIfuFlowActive={setIfuFlowActive} onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(!!bulk); }} />
+      return <ProofreaderDashboardScreen onNavigate={navigate} />
+
+    case 'label-workflow':
+      return (
+        <LabelWorkflowScreen
+          onNavigate={navigate}
+          onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(!!bulk); }}
+          onSetLrfFlowActive={setLrfFlowActive}
+        />
+      )
 
     case 'upload-comparison':
       return <UploadComparisonScreen onNavigate={navigate} onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(false); }} />
 
     case 'upload-ifu':
-      return <UploadIfuScreen onNavigate={navigate} onSetFiles={(m, r) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(false); setHistoryPreview(false); }} />
+      return (
+        <UploadIfuScreen
+          onNavigate={navigate}
+          onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(!!bulk); }}
+          onSetLrfFlowActive={setLrfFlowActive}
+          onSetIfuFlowActive={setIfuFlowActive}
+        />
+      )
 
     case 'analysis':
       return (
@@ -146,10 +166,10 @@ export default function App() {
       )
 
     case 'admin-dashboard':
-      return <AdminDashboardScreen onNavigate={navigate} onSelectProofreader={setSelectedProofreader} onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(!!bulk); }} onSetLrfFlowActive={setLrfFlowActive} onSetIfuFlowActive={setIfuFlowActive} />
+      return <AdminDashboardScreen onNavigate={navigate} onSelectProofreader={setSelectedProofreader} onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(!!bulk); }} onSetLrfFlowActive={setLrfFlowActive} onSetIfuFlowActive={setIfuFlowActive} adminModule={adminModule} onSetAdminModule={setAdminModule} />
 
     case 'workspace-admin-dashboard':
-      return <WorkspaceAdminDashboardScreen onNavigate={navigate} onSelectProofreader={setSelectedProofreader} onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(!!bulk); }} onSetLrfFlowActive={setLrfFlowActive} onSetIfuFlowActive={setIfuFlowActive} />
+      return <WorkspaceAdminDashboardScreen onNavigate={navigate} onSelectProofreader={setSelectedProofreader} onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(!!bulk); }} onSetLrfFlowActive={setLrfFlowActive} onSetIfuFlowActive={setIfuFlowActive} adminModule={adminModule} onSetAdminModule={setAdminModule} />
 
     case 'team-members':
       return <TeamMembersScreen onNavigate={navigate} onSelectProofreader={setSelectedProofreader} userRole={userRole} />
@@ -165,6 +185,8 @@ export default function App() {
           onSetFiles={(m, r, bulk) => { setMasterFilename(m); setRevisedFilename(r); setBulkMode(!!bulk); setHistoryPreview(!!bulk); }}
           onSetLrfFlowActive={setLrfFlowActive}
           onSetIfuFlowActive={setIfuFlowActive}
+          adminModule={adminModule}
+          onSetAdminModule={setAdminModule}
         />
       )
 

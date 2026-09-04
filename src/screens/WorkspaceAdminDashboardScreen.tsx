@@ -1,12 +1,26 @@
 import { useState, ReactNode } from 'react'
 import NavBar from '../components/NavBar'
 import AdminSidebar from '../components/AdminSidebar'
+import ModuleSwitcher, { type Module } from '../components/ModuleSwitcher'
 import { C } from '../colors'
 import type { Screen } from '../App'
 
-type Props = { onNavigate: (s: Screen) => void; onSelectProofreader: (name: string | null) => void; onSetFiles?: (master: string, revised: string, bulk: boolean) => void; onSetLrfFlowActive?: (active: boolean) => void; onSetIfuFlowActive?: (active: boolean) => void }
+type Props = {
+  onNavigate: (s: Screen) => void
+  onSelectProofreader: (name: string | null) => void
+  onSetFiles?: (master: string, revised: string, bulk: boolean) => void
+  onSetLrfFlowActive?: (active: boolean) => void
+  onSetIfuFlowActive?: (active: boolean) => void
+  adminModule: Module
+  onSetAdminModule: (m: Module) => void
+}
 
-const flashCards = [
+const LABEL_WORKFLOWS = ['VISUAL COMPARISON', 'PROOF READING'] as const
+const IFU_WORKFLOWS = ['DOCUMENT COMPARISON'] as const
+// IFU documents are validated across this many languages (mock — real detection would come from the backend)
+const IFU_LANG_COUNT = 13
+
+const labelFlashCards = [
   {
     label: 'Total Runs',
     value: '89',
@@ -58,17 +72,48 @@ const flashCards = [
   },
 ]
 
+const ifuFlashCards = [
+  {
+    label: 'Total Runs',
+    value: '19',
+    icon: labelFlashCards[0].icon,
+    gradient: 'linear-gradient(135deg, #1E293B 0%, #475569 100%)',
+    sub: '+2 this week',
+  },
+  {
+    label: 'Team Members',
+    value: '5',
+    icon: labelFlashCards[1].icon,
+    gradient: 'linear-gradient(135deg, #334155 0%, #94A3B8 100%)',
+    sub: '3 active today',
+  },
+  {
+    label: 'Avg Findings / Run',
+    value: '10.5',
+    icon: labelFlashCards[2].icon,
+    gradient: 'linear-gradient(135deg, #475569 0%, #CBD5E1 100%)',
+    sub: 'DePuy CSV Team',
+  },
+  {
+    label: 'Reports Exported',
+    value: '13',
+    icon: labelFlashCards[3].icon,
+    gradient: 'linear-gradient(135deg, #1E293B 0%, #475569 100%)',
+    sub: 'Inspection reports (PDF)',
+  },
+]
+
 const historyRows = [
   { datetime: 'Jul 22, 2026, 09:14 AM', proofreader: 'Dhivya',   master: '→ 2 files', revised: '→ 2 files', mode: 'BULK',   pairs: 2, findings: 7,  workflow: 'PROOF READING', status: 'PASS' },
   { datetime: 'Jul 21, 2026, 11:52 AM', proofreader: 'Athmika',  master: '→ 2 files', revised: '→ 2 files', mode: 'BULK',   pairs: 2, findings: 12, workflow: 'PROOF READING', status: 'PASS' },
   { datetime: 'Jul 21, 2026, 10:28 AM', proofreader: 'Dhivya',   master: 'Master.pdf',  revised: 'Revised.pdf', mode: 'SINGLE', pairs: 1,  findings: 3,  workflow: 'PROOF READING',     status: 'PASS' },
   { datetime: 'Jul 20, 2026, 03:12 PM', proofreader: 'Shrvaani', master: '→ 2 files', revised: '→ 2 files', mode: 'BULK',   pairs: 2, findings: 0,  workflow: 'VISUAL COMPARISON', status: 'PASS' },
   { datetime: 'Jul 19, 2026, 08:44 AM', proofreader: 'Rooban',   master: 'LCN-label.pdf', revised: 'LCN-label-v2.pdf', mode: 'SINGLE', pairs: 1, findings: 5, workflow: 'PROOF READING', status: 'PASS' },
-  { datetime: 'Aug 01, 2026, 09:38 AM', proofreader: 'Athmika',  master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, findings: 11, workflow: 'IFU DOCUMENT COMPARISON', status: 'PASS' },
-  { datetime: 'Aug 03, 2026, 03:24 PM', proofreader: 'Dhivya',   master: '→ 2 files', revised: '→ 2 files', mode: 'BULK', pairs: 2, findings: 9, workflow: 'IFU DOCUMENT COMPARISON', status: 'PASS' },
+  { datetime: 'Aug 01, 2026, 09:38 AM', proofreader: 'Athmika',  master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, findings: 11, workflow: 'DOCUMENT COMPARISON', status: 'PASS' },
+  { datetime: 'Aug 03, 2026, 03:24 PM', proofreader: 'Dhivya',   master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, findings: 9, workflow: 'DOCUMENT COMPARISON', status: 'PASS' },
 ]
 
-const analyticsData = [
+const labelAnalyticsData = [
   { day: 'Thu', runs: 8 },
   { day: 'Fri', runs: 14 },
   { day: 'Sat', runs: 11 },
@@ -76,6 +121,16 @@ const analyticsData = [
   { day: 'Mon', runs: 17 },
   { day: 'Tue', runs: 21 },
   { day: 'Wed', runs: 18 },
+]
+
+const ifuAnalyticsData = [
+  { day: 'Thu', runs: 2 },
+  { day: 'Fri', runs: 3 },
+  { day: 'Sat', runs: 2 },
+  { day: 'Sun', runs: 1 },
+  { day: 'Mon', runs: 4 },
+  { day: 'Tue', runs: 5 },
+  { day: 'Wed', runs: 4 },
 ]
 
 function Badge({ children, bg, color }: { children: ReactNode; bg: string; color: string }) {
@@ -86,13 +141,20 @@ function Badge({ children, bg, color }: { children: ReactNode; bg: string; color
   )
 }
 
-export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProofreader, onSetFiles, onSetLrfFlowActive, onSetIfuFlowActive }: Props) {
+export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProofreader, onSetFiles, onSetLrfFlowActive, onSetIfuFlowActive, adminModule, onSetAdminModule }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'IFU DOCUMENT COMPARISON'>('ALL')
+  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'DOCUMENT COMPARISON'>('ALL')
   const [hoveredDataPoint, setHoveredDataPoint] = useState<number | null>(null)
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
 
-  const filteredRows = historyRows.filter(row => {
+  const isIfuModule = adminModule === 'ifu'
+  const moduleWorkflows = isIfuModule ? IFU_WORKFLOWS : LABEL_WORKFLOWS
+  const flashCards = isIfuModule ? ifuFlashCards : labelFlashCards
+  const analyticsData = isIfuModule ? ifuAnalyticsData : labelAnalyticsData
+
+  const moduleRows = historyRows.filter(row => (moduleWorkflows as readonly string[]).includes(row.workflow))
+
+  const filteredRows = moduleRows.filter(row => {
     const matchesSearch =
       row.proofreader.toLowerCase().includes(searchQuery.toLowerCase()) ||
       row.master.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -137,6 +199,12 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
         onLogout={() => onNavigate('login')}
         profileName="Dhivya"
         profileInitials="D"
+        rightNode={
+          <ModuleSwitcher
+            value={adminModule}
+            onChange={m => { onSetAdminModule(m); setWorkflowFilter('ALL'); setSearchQuery('') }}
+          />
+        }
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -149,7 +217,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
             <h1 className="font-bold text-2xl text-slate-800" style={{ fontFamily: 'Inter, sans-serif' }}>
               Welcome back, Dhivya
             </h1>
-            <p className="text-sm text-slate-500">Monitor compliance runs for your workspace · <span className="font-semibold text-slate-600">DePuy CSV Team</span></p>
+            <p className="text-sm text-slate-500">Monitor {isIfuModule ? 'IFU document comparison' : 'label'} compliance runs for your workspace · <span className="font-semibold text-slate-600">DePuy CSV Team</span></p>
           </div>
         </div>
 
@@ -262,7 +330,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
             <div className="flex justify-between items-center">
               <div>
                 <h2 className="font-bold text-base text-slate-800">Recent Activity Log</h2>
-                <p className="text-xs text-slate-400">Label comparisons completed by your team</p>
+                <p className="text-xs text-slate-400">{isIfuModule ? 'IFU document comparisons' : 'Label comparisons'} completed by your team</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -298,7 +366,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
 
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-1.5">
-                {(['ALL', 'VISUAL COMPARISON', 'PROOF READING', 'IFU DOCUMENT COMPARISON'] as const).map(w => (
+                {(isIfuModule ? moduleWorkflows : (['ALL', ...moduleWorkflows] as const)).map(w => (
                   <button
                     key={w}
                     onClick={() => setWorkflowFilter(w)}
@@ -308,7 +376,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
                       color: workflowFilter === w ? 'white' : C.muted
                     }}
                   >
-                    {w === 'ALL' ? 'All Workflows' : w === 'VISUAL COMPARISON' ? 'Visual Compare' : w === 'PROOF READING' ? 'Proof Reading' : 'IFU Document Comparison'}
+                    {w === 'ALL' ? 'All Workflows' : w === 'VISUAL COMPARISON' ? 'Visual Compare' : w === 'PROOF READING' ? 'Proof Reading' : 'Document Comparison'}
                   </button>
                 ))}
               </div>
@@ -333,20 +401,21 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
           <div className="overflow-x-auto">
             <table className="w-full text-sm table-fixed" style={{ minWidth: 860 }}>
               <colgroup>
-                <col style={{ width: '14%' }} />{/* DATE / TIME */}
+                <col style={{ width: '13%' }} />{/* DATE / TIME */}
                 <col style={{ width: '9%' }} /> {/* PROOFREADER */}
-                <col style={{ width: '10%' }} />{/* MASTER FILE */}
-                <col style={{ width: '10%' }} />{/* REVISED FILE */}
+                <col style={{ width: '9%' }} />{/* MASTER FILE */}
+                <col style={{ width: '9%' }} />{/* REVISED FILE */}
                 <col style={{ width: '6%' }} /> {/* MODE */}
                 <col style={{ width: '5%' }} /> {/* PAIRS */}
                 <col style={{ width: '6%' }} /> {/* FINDINGS */}
-                <col style={{ width: '15%' }} />{/* WORKFLOW */}
+                {isIfuModule && <col style={{ width: '7%' }} />}{/* LANG COUNT */}
+                <col style={{ width: '14%' }} />{/* WORKFLOW */}
                 <col style={{ width: '9%' }} /> {/* RUN STATUS */}
-                <col style={{ width: '10%' }} />{/* ACTIONS */}
+                <col style={{ width: '9%' }} />{/* ACTIONS */}
               </colgroup>
               <thead>
                 <tr style={{ backgroundColor: C.grayBg, borderBottom: `1px solid ${C.border}` }}>
-                  {['DATE / TIME', 'PROOFREADER', 'MASTER FILE', 'REVISED FILE', 'MODE', 'PAIRS', 'FINDINGS', 'WORKFLOW', 'RUN STATUS', 'ACTIONS'].map(h => (
+                  {['DATE / TIME', 'PROOFREADER', 'MASTER FILE', 'REVISED FILE', 'MODE', 'PAIRS', 'FINDINGS', ...(isIfuModule ? ['LANG COUNT'] : []), 'WORKFLOW', 'RUN STATUS', 'ACTIONS'].map(h => (
                     <th key={h} className="px-2 py-2.5 text-left text-xs font-bold text-slate-400 tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -354,7 +423,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-xs text-slate-400 italic">No matching records found.</td>
+                    <td colSpan={isIfuModule ? 11 : 10} className="px-3 py-8 text-center text-xs text-slate-400 italic">No matching records found.</td>
                   </tr>
                 ) : (
                   filteredRows.map((row, i) => (
@@ -401,10 +470,13 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
                         </td>
                         <td className="px-2 py-3 text-xs text-center text-slate-700">{row.pairs}</td>
                         <td className="px-2 py-3 text-xs text-center font-bold text-slate-800">{row.findings}</td>
+                        {isIfuModule && (
+                          <td className="px-2 py-3 text-xs text-center font-semibold text-slate-700">{IFU_LANG_COUNT}</td>
+                        )}
                         <td className="px-2 py-3">
                           <Badge
-                            bg={row.workflow === 'VISUAL COMPARISON' ? C.orangeLight : row.workflow === 'IFU DOCUMENT COMPARISON' ? '#f1edff' : C.navyLight}
-                            color={row.workflow === 'VISUAL COMPARISON' ? C.orangeText : row.workflow === 'IFU DOCUMENT COMPARISON' ? '#5b3ecf' : C.navy}
+                            bg={row.workflow === 'VISUAL COMPARISON' ? C.orangeLight : row.workflow === 'DOCUMENT COMPARISON' ? '#F1F5F9' : C.navyLight}
+                            color={row.workflow === 'VISUAL COMPARISON' ? C.orangeText : row.workflow === 'DOCUMENT COMPARISON' ? '#475569' : C.navy}
                           >
                             {row.workflow}
                           </Badge>
@@ -419,7 +491,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
                                 const isBulk = row.mode === 'BULK'
                                 onSetFiles?.(isBulk ? 'Master.pdf' : row.master, isBulk ? 'Revised.pdf' : row.revised, isBulk)
                                 onSetLrfFlowActive?.(row.workflow === 'PROOF READING')
-                                onSetIfuFlowActive?.(row.workflow === 'IFU DOCUMENT COMPARISON')
+                                onSetIfuFlowActive?.(row.workflow === 'DOCUMENT COMPARISON')
                                 onNavigate('analysis')
                               }}
                               className="flex items-center justify-center rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
@@ -434,7 +506,7 @@ export default function WorkspaceAdminDashboardScreen({ onNavigate, onSelectProo
                             <button
                               onClick={() => {
                                 const isLrfBulk = row.mode === 'BULK' && row.workflow === 'PROOF READING'
-                                const file = row.workflow === 'IFU DOCUMENT COMPARISON' ? '/IFU-Report.pdf' : isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
+                                const file = row.workflow === 'DOCUMENT COMPARISON' ? '/IFU-Report.pdf' : isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
                                 const a = document.createElement('a')
                                 a.href = file
                                 a.download = file.split('/').pop()!

@@ -45,15 +45,16 @@ interface Props {
   onSetFiles: (master: string, revised: string, bulk?: boolean) => void;
 }
 
+// Note: red/green are reserved for PASS/FAIL status only — categories and change types use other theme colors.
 const CAT_COLORS: Record<string, string> = {
   text: "bg-blue-50 text-blue-700 border-blue-200",
   graphics: "bg-amber-50 text-amber-700 border-amber-200",
-  barcode: "bg-green-50 text-green-700 border-green-200",
+  barcode: "bg-violet-50 text-violet-700 border-violet-200",
 };
 const CHANGE_COLORS: Record<string, string> = {
-  Add: "bg-green-50 text-green-700 border-green-200",
-  Remove: "bg-red-50 text-red-700 border-red-200",
-  Delete: "bg-red-50 text-red-700 border-red-200",
+  Add: "bg-teal-50 text-teal-700 border-teal-200",
+  Remove: "bg-slate-100 text-slate-700 border-slate-300",
+  Delete: "bg-slate-100 text-slate-700 border-slate-300",
   Modify: "bg-blue-50 text-blue-700 border-blue-200",
 };
 
@@ -280,7 +281,7 @@ export default function UploadLrfScreen({ lrfData, onNavigate, onSetLrfFlowActiv
           </button>
           <button
             onClick={() => { closeMismatchDialog(); dispatchRun(); }}
-            className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold uppercase tracking-wider bg-[#1e2a52] text-white rounded-lg hover:opacity-90 transition-opacity shadow-sm"
+            className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold uppercase tracking-wider bg-[#1C2E59] text-white rounded-lg hover:opacity-90 transition-opacity shadow-sm"
           >
             Proceed
             <ArrowRight className="h-4 w-4" />
@@ -550,7 +551,7 @@ export default function UploadLrfScreen({ lrfData, onNavigate, onSetLrfFlowActiv
             <button
               onClick={handleRun}
               disabled={!ready}
-              className="flex items-center gap-2 px-7 py-2.5 text-[13px] font-bold uppercase tracking-widest transition-all rounded-lg shadow-sm bg-[#ea580c] text-white hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="flex items-center gap-2 px-7 py-2.5 text-[13px] font-bold uppercase tracking-widest transition-all rounded-lg shadow-sm bg-[#1C2E59] text-white hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               Run Comparison
               <ArrowRight className="h-4 w-4" />
@@ -632,7 +633,7 @@ function DropZone({
     onClear();
   };
 
-  const accentColor = variant === "master" ? "#DC2626" : "#2563EB";
+  const accentColor = variant === "master" ? "#ea580c" : "#2563EB";
 
   return (
     <div>
@@ -721,7 +722,7 @@ function MultiDropZone({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [hover, setHover] = useState(false);
-  const accentColor = variant === "master" ? "#DC2626" : "#2563EB";
+  const accentColor = variant === "master" ? "#ea580c" : "#2563EB";
   const atLimit = files.length >= BULK_MAX_FILES;
 
   const handleFiles = async (list: FileList | null) => {
@@ -891,7 +892,7 @@ function ProcessingModal({
             </button>
             <button
               onClick={onContinue}
-              className="px-6 py-2.5 text-sm font-bold uppercase tracking-wider bg-[#ea580c] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-6 py-2.5 text-sm font-bold uppercase tracking-wider bg-[#1C2E59] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               PROCEED <ArrowRight className="h-3.5 w-3.5" />
             </button>

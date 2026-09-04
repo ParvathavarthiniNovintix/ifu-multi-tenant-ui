@@ -4,6 +4,7 @@ import {
   CheckCircle2, ScanLine, Loader2, Circle
 } from "lucide-react";
 import NavBar from "../components/NavBar";
+import RecentRunsTable, { type RunRow } from "../components/RecentRunsTable";
 import type { Screen } from "../App";
 
 interface UploadedFile {
@@ -15,36 +16,50 @@ interface UploadedFile {
 
 type Props = {
   onNavigate: (s: Screen) => void;
-  onSetFiles: (current: string, revised: string) => void;
+  onSetFiles: (current: string, revised: string, bulk?: boolean) => void;
+  onSetLrfFlowActive?: (active: boolean) => void;
+  onSetIfuFlowActive?: (active: boolean) => void;
 };
+
+const ifuRuns: RunRow[] = [
+  { datetime: 'Aug 1, 2026, 09:38 AM', master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 11, workflow: 'DOCUMENT COMPARISON', status: 'PASS' },
+  { datetime: 'Aug 3, 2026, 03:24 PM', master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 9, workflow: 'DOCUMENT COMPARISON', status: 'PASS' },
+  { datetime: 'Jul 30, 2026, 04:05 PM', master: 'IFU-149990B_test.pdf', revised: 'IFU-149990C_test.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 82, workflow: 'DOCUMENT COMPARISON', status: 'PASS' },
+]
 
 type ModalPhase =
   | null
-  | { type: 'preprocessing'; step: number }
-  | { type: 'preprocessing-complete' }
-  | { type: 'analysing'; step: number };
+  | { type: 'running'; step: number }
+  | { type: 'complete' };
 
-const PRE_STEPS = ['Rendering documents', 'Calibrating resolution', 'Aligning pages'];
-const ANALYSIS_STEPS = [
-  'Uploading files',
-  'Rendering documents',
-  'Comparing cover pages & directories',
-  'Detecting text, figure & table changes',
-  'Classifying findings',
-  'Compiling report',
+// Pipeline steps and their (mock) elapsed times — the pipeline that runs when comparing two IFUs
+const STEPS = [
+  'Parse PDFs',
+  'Cover-page identity sanity gate',
+  'Language-set + directory checks',
+  'Text diff (sentence matching)',
+  'Representation-change probe (image/table ↔ live text)',
+  'Figure diff (incl. WYSIWYG render)',
+  'Table diff',
+  'Matrix code diff (DataMatrix / QR / ...)',
+  'Classification',
+  'Write Excel report',
+  'Annotate PDFs',
+  'Write PDF report',
 ];
+const STEP_DURATIONS = [795.70, 0.00, 0.29, 0.49, 3.74, 1.53, 2.24, 0.68, 0.15, 1.08, 4.32, 0.71];
 
 function StepIcon({ state }: { state: 'done' | 'active' | 'pending' }) {
   if (state === 'done') {
     return <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />;
   }
   if (state === 'active') {
-    return <Loader2 className="h-3.5 w-3.5 text-[#5b3ecf] animate-spin shrink-0" />;
+    return <Loader2 className="h-3.5 w-3.5 text-[#475569] animate-spin shrink-0" />;
   }
   return <Circle className="h-3.5 w-3.5 text-slate-200 shrink-0" />;
 }
 
-export default function UploadIfuScreen({ onNavigate, onSetFiles }: Props) {
+export default function UploadIfuScreen({ onNavigate, onSetFiles, onSetLrfFlowActive, onSetIfuFlowActive }: Props) {
   const [current, setCurrent] = useState<UploadedFile | null>({ name: 'IFU-current.pdf', size: 317195, url: '/ifu/IFU-149990B_test.pdf', file: new File([], 'IFU-current.pdf') });
   const [revised, setRevised] = useState<UploadedFile | null>({ name: 'IFU-revised.pdf', size: 375101, url: '/ifu/IFU-149990C_test.pdf', file: new File([], 'IFU-revised.pdf') });
   const [modalPhase, setModalPhase] = useState<ModalPhase>(null);
@@ -52,41 +67,23 @@ export default function UploadIfuScreen({ onNavigate, onSetFiles }: Props) {
   const ready = !!current && !!revised;
 
   useEffect(() => {
-    if (!modalPhase) return;
-
-    if (modalPhase.type === 'preprocessing') {
-      if (modalPhase.step < PRE_STEPS.length - 1) {
-        const t = setTimeout(() => setModalPhase({ type: 'preprocessing', step: modalPhase.step + 1 }), 900);
-        return () => clearTimeout(t);
-      } else {
-        const t = setTimeout(() => setModalPhase({ type: 'preprocessing-complete' }), 900);
-        return () => clearTimeout(t);
-      }
+    if (!modalPhase || modalPhase.type !== 'running') return;
+    if (modalPhase.step < STEPS.length - 1) {
+      const t = setTimeout(() => setModalPhase({ type: 'running', step: modalPhase.step + 1 }), 450);
+      return () => clearTimeout(t);
     }
-
-    if (modalPhase.type === 'analysing') {
-      if (modalPhase.step < ANALYSIS_STEPS.length - 1) {
-        const t = setTimeout(() => setModalPhase({ type: 'analysing', step: modalPhase.step + 1 }), 600);
-        return () => clearTimeout(t);
-      } else {
-        const t = setTimeout(() => {
-          onSetFiles(current?.name || 'IFU-current.pdf', revised?.name || 'IFU-revised.pdf');
-          onNavigate('analysis');
-        }, 750);
-        return () => clearTimeout(t);
-      }
-    }
-  }, [modalPhase, onNavigate, onSetFiles, current, revised]);
+    const t = setTimeout(() => setModalPhase({ type: 'complete' }), 450);
+    return () => clearTimeout(t);
+  }, [modalPhase]);
 
   const handleRunComparison = () => {
     if (!ready) return;
-    setModalPhase({ type: 'preprocessing', step: 0 });
+    setModalPhase({ type: 'running', step: 0 });
   };
 
-  const handleContinue = () => {
-    if (modalPhase?.type === 'preprocessing-complete') {
-      setModalPhase({ type: 'analysing', step: 0 });
-    }
+  const handleViewFindings = () => {
+    onSetFiles(current?.name || 'IFU-current.pdf', revised?.name || 'IFU-revised.pdf');
+    onNavigate('analysis');
   };
 
   const handleReupload = () => {
@@ -111,34 +108,50 @@ export default function UploadIfuScreen({ onNavigate, onSetFiles }: Props) {
         />
 
         <main className="flex-1 flex items-start justify-center px-6 py-16">
-          <div className="w-full max-w-4xl">
-            <div className="text-center mb-10">
-              <h1 className="text-[28px] font-semibold tracking-tight text-[#1C2E59] mb-2">
-                Compare IFUs
-              </h1>
-              <p className="text-sm text-gray-500">
-                Upload a current and revised IFU document to identify text, figure, table and formatting differences.
-              </p>
+          <div className="w-full max-w-6xl">
+            <div className="w-full max-w-4xl mx-auto">
+              <div className="text-center mb-10">
+                <h1 className="text-[28px] font-semibold tracking-tight text-[#1C2E59] mb-2">
+                  Compare IFUs
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Upload a current and revised IFU document to identify text, figure, table and formatting differences.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <DropZone label="Current IFU Document" file={current} onFile={setCurrent} onClear={() => setCurrent(null)} variant="master" />
+                <DropZone label="Revised IFU Document" file={revised} onFile={setRevised} onClear={() => setRevised(null)} variant="revised" />
+              </div>
+
+              {/* Run comparison button */}
+              <div className="mt-8 flex flex-col items-center gap-3">
+                <button
+                  onClick={handleRunComparison}
+                  disabled={!ready}
+                  className="px-8 py-2.5 rounded-lg text-sm font-bold text-white transition-all cursor-pointer"
+                  style={{
+                    backgroundColor: ready ? '#1C2E59' : '#1C2E5960',
+                    cursor: ready ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Run comparison
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <DropZone label="Current IFU Document" file={current} onFile={setCurrent} onClear={() => setCurrent(null)} variant="master" />
-              <DropZone label="Revised IFU Document" file={revised} onFile={setRevised} onClear={() => setRevised(null)} variant="revised" />
-            </div>
-
-            {/* Run comparison button */}
-            <div className="mt-8 flex flex-col items-center gap-3">
-              <button
-                onClick={handleRunComparison}
-                disabled={!ready}
-                className="px-8 py-2.5 rounded-lg text-sm font-bold text-white transition-all cursor-pointer"
-                style={{
-                  backgroundColor: ready ? '#5b3ecf' : '#5b3ecf60',
-                  cursor: ready ? 'pointer' : 'not-allowed',
-                }}
-              >
-                Run comparison
-              </button>
+            <div className="mt-14">
+              <RecentRunsTable
+                title="Recent IFU Runs"
+                runs={ifuRuns}
+                showLangCount
+                historyScreen="proofreader-history"
+                csvFileName="proofx-ifu-runs.csv"
+                onNavigate={onNavigate}
+                onSetFiles={onSetFiles}
+                onSetLrfFlowActive={onSetLrfFlowActive}
+                onSetIfuFlowActive={onSetIfuFlowActive}
+              />
             </div>
           </div>
         </main>
@@ -152,7 +165,7 @@ export default function UploadIfuScreen({ onNavigate, onSetFiles }: Props) {
       {modalPhase && (
         <ProcessingModal
           phase={modalPhase}
-          onContinue={handleContinue}
+          onViewFindings={handleViewFindings}
           onReupload={handleReupload}
           currentName={current?.name ?? 'IFU-current.pdf'}
           revisedName={revised?.name ?? 'IFU-revised.pdf'}
@@ -181,7 +194,7 @@ function DropZone({
     onFile({ name: f.name, size: f.size, url: URL.createObjectURL(f), file: f });
   };
 
-  const accentColor = variant === "master" ? "#DC2626" : "#2563EB";
+  const accentColor = variant === "master" ? "#475569" : "#2563EB";
 
   return (
     <div>
@@ -237,27 +250,26 @@ function formatBytes(bytes: number) {
 
 function ProcessingModal({
   phase,
-  onContinue,
+  onViewFindings,
   onReupload,
   currentName,
   revisedName,
 }: {
   phase: ModalPhase;
-  onContinue: () => void;
+  onViewFindings: () => void;
   onReupload: () => void;
   currentName: string;
   revisedName: string;
 }) {
   if (!phase) return null;
 
-  const isPreprocessing = phase.type === 'preprocessing';
-  const isAnalysing = phase.type === 'analysing';
-  const isComplete = phase.type === 'preprocessing-complete';
+  const isComplete = phase.type === 'complete';
+  const currentStep = phase.type === 'running' ? phase.step : STEPS.length;
 
-  const currentStep = (isPreprocessing || isAnalysing) ? phase.step : -1;
-  const steps = isAnalysing ? ANALYSIS_STEPS : PRE_STEPS;
-
-  const title = isAnalysing ? 'Analysing IFU documents' : 'Verifying IFU documents for Analysis';
+  const title = isComplete ? 'Proofreading completed' : 'Comparing documents…';
+  const subtitle = isComplete
+    ? 'All steps finished — review the findings whenever you\'re ready.'
+    : 'This can take a while for large IFUs — the pipeline runs OCR, layout, text, figure, table, and matrix-code diffing in sequence.';
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-[120] bg-black/30 backdrop-blur-[2px]">
@@ -265,62 +277,65 @@ function ProcessingModal({
         {/* Header */}
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <ScanLine className="h-4 w-4 text-[#5b3ecf] animate-spin" style={{ animationDuration: "2.2s" }} />
-            <span className="text-xs font-bold tracking-tight uppercase text-[#5b3ecf]">ProofX</span>
+            {isComplete ? (
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            ) : (
+              <ScanLine className="h-4 w-4 text-[#475569] animate-spin" style={{ animationDuration: "2.2s" }} />
+            )}
+            <span className="text-xs font-bold tracking-tight uppercase text-[#475569]">ProofX</span>
           </div>
           <div className="text-lg font-semibold text-[#1A1A2E] mb-2">
             {title}
           </div>
-          <p className="text-[11px] text-[#4a3494] leading-relaxed bg-[#f1edff] border border-[#e0d8ff] p-2.5 rounded-lg">
-            <strong>Why preprocessing?</strong> We align pages and calibrate resolution so that content, formatting and structural differences are detected with pixel-level accuracy.
+          <p className="text-[11px] text-[#334155] leading-relaxed bg-[#F1F5F9] border border-[#CBD5E1] p-2.5 rounded-lg">
+            {subtitle}
           </p>
         </div>
 
         <div className="flex flex-col gap-5">
           {/* Pipeline Status Box */}
-          {!isComplete && (
-            <div className="border border-slate-200 rounded-lg overflow-hidden border-[#5b3ecf]/20 bg-white">
-              <div className="flex items-center gap-3 px-4 py-3 bg-[#F4F2FC]">
-                <Loader2 className="animate-spin shrink-0 h-4 w-4 text-[#5b3ecf]" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-[#5b3ecf] truncate flex items-center gap-1">
-                    <span>{currentName}</span>
-                    <span className="text-[#8F9CAE] font-normal px-0.5">vs</span>
-                    <span>{revisedName}</span>
-                  </div>
+          <div className="border border-slate-200 rounded-lg overflow-hidden border-[#475569]/20 bg-white">
+            <div className="flex items-center gap-3 px-4 py-3 bg-[#F4F2FC]">
+              {isComplete ? (
+                <CheckCircle2 className="shrink-0 h-4 w-4 text-green-500" />
+              ) : (
+                <Loader2 className="animate-spin shrink-0 h-4 w-4 text-[#475569]" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-semibold text-[#475569] truncate flex items-center gap-1">
+                  <span>{currentName}</span>
+                  <span className="text-[#8F9CAE] font-normal px-0.5">vs</span>
+                  <span>{revisedName}</span>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#5b3ecf] shrink-0">
-                  PROCESSING
-                </span>
               </div>
-
-              <div className="border-t border-[#E0E0E0] px-4 py-3 flex flex-col gap-2 bg-white">
-                {/* Upload step */}
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                  <span className="text-[11px] leading-none text-[#1A1A2E]">
-                    Uploading files
-                  </span>
-                </div>
-
-                {steps.map((step, i) => {
-                  const state = i < currentStep ? 'done' : i === currentStep ? 'active' : 'pending';
-                  return (
-                    <div key={step} className="flex items-center gap-2">
-                      <StepIcon state={state} />
-                      <span className={`text-[11px] leading-none ${
-                        state === 'done' ? 'text-[#1A1A2E]'
-                        : state === 'active' ? 'text-[#5b3ecf] font-medium'
-                        : 'text-[#5F6368]/40'
-                      }`}>
-                        {step}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#475569] shrink-0">
+                {isComplete ? 'DONE' : 'PROCESSING'}
+              </span>
             </div>
-          )}
+
+            <div className="border-t border-[#E0E0E0] px-4 py-3 flex flex-col gap-2 bg-white max-h-72 overflow-y-auto">
+              {STEPS.map((step, i) => {
+                const state = i < currentStep ? 'done' : i === currentStep ? 'active' : 'pending';
+                return (
+                  <div key={step} className="flex items-center gap-2">
+                    <StepIcon state={state} />
+                    <span className={`text-[11px] leading-none flex-1 ${
+                      state === 'done' ? 'text-[#1A1A2E]'
+                      : state === 'active' ? 'text-[#475569] font-medium'
+                      : 'text-[#5F6368]/40'
+                    }`}>
+                      {step}
+                    </span>
+                    {state === 'done' && (
+                      <span className="text-[11px] text-[#5F6368] tabular-nums">
+                        {STEP_DURATIONS[i].toFixed(2)}s
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Action Buttons */}
           {isComplete && (
@@ -332,10 +347,10 @@ function ProcessingModal({
                 Re-upload
               </button>
               <button
-                onClick={onContinue}
-                className="flex-1 py-2.5 rounded-lg bg-[#5b3ecf] text-white text-sm font-semibold hover:bg-[#5b3ecf]/90 active:bg-[#5b3ecf]/80 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                onClick={onViewFindings}
+                className="flex-1 py-2.5 rounded-lg bg-[#475569] text-white text-sm font-semibold hover:bg-[#475569]/90 active:bg-[#475569]/80 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Continue <ArrowRight className="h-3.5 w-3.5" />
+                View Findings <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
           )}

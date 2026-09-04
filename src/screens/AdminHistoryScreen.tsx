@@ -1,6 +1,7 @@
 import { useState, Fragment } from 'react'
 import NavBar from '../components/NavBar'
 import AdminSidebar from '../components/AdminSidebar'
+import ModuleSwitcher, { type Module } from '../components/ModuleSwitcher'
 import { C } from '../colors'
 import type { Screen } from '../App'
 
@@ -13,7 +14,14 @@ type Props = {
   onSetFiles?: (master: string, revised: string, bulk: boolean) => void
   onSetLrfFlowActive?: (active: boolean) => void
   onSetIfuFlowActive?: (active: boolean) => void
+  adminModule: Module
+  onSetAdminModule: (m: Module) => void
 }
+
+const LABEL_WORKFLOWS = ['VISUAL COMPARISON', 'PROOF READING'] as const
+const IFU_WORKFLOWS = ['DOCUMENT COMPARISON'] as const
+// IFU documents are validated across this many languages (mock — real detection would come from the backend)
+const IFU_LANG_COUNT = 13
 
 const teamMap: Record<string, { name: string; color: string; lightColor: string }> = {
   'Dhivya':   { name: 'DePuy CSV',     color: '#1C2E59', lightColor: '#e9edf6' },
@@ -37,6 +45,9 @@ const rows = [
   { datetime: 'Jul 19, 2026, 08:44 AM', proofreader: 'Rooban',   master: 'LCN-label.pdf',   revised: 'LCN-label-v2.pdf', mode: 'SINGLE', pairs: 1,  skipped: 0, findings: 5,  workflow: 'PROOF READING',     status: 'PASS', expandable: false },
   { datetime: 'Jul 18, 2026, 02:30 PM', proofreader: 'Parvatha', master: '→ 2 files',       revised: '→ 2 files',        mode: 'BULK',   pairs: 2, skipped: 0, findings: 18, workflow: 'VISUAL COMPARISON', status: 'PASS', expandable: true  },
   { datetime: 'Jul 17, 2026, 08:17 PM', proofreader: 'Dhivya',   master: '→ 2 files',       revised: '→ 2 files',        mode: 'BULK',   pairs: 2, skipped: 1, findings: 4,  workflow: 'VISUAL COMPARISON', status: 'PASS', expandable: true  },
+  { datetime: 'Aug 01, 2026, 09:38 AM', proofreader: 'Athmika',  master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 11, workflow: 'DOCUMENT COMPARISON', status: 'PASS', expandable: false },
+  { datetime: 'Aug 03, 2026, 03:24 PM', proofreader: 'Dhivya',   master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 9,  workflow: 'DOCUMENT COMPARISON', status: 'PASS', expandable: false },
+  { datetime: 'Jul 30, 2026, 04:05 PM', proofreader: 'Vikram',   master: 'IFU-149990B_test.pdf', revised: 'IFU-149990C_test.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 82, workflow: 'DOCUMENT COMPARISON', status: 'PASS', expandable: false },
 ]
 
 const pairNames = [
@@ -60,6 +71,8 @@ export default function AdminHistoryScreen({
   onSetFiles,
   onSetLrfFlowActive,
   onSetIfuFlowActive,
+  adminModule,
+  onSetAdminModule,
 }: Props) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
   const [page, setPage] = useState(1)
@@ -75,10 +88,13 @@ export default function AdminHistoryScreen({
 
   const isWorkspaceAdmin = userRole === 'workspace-admin'
   const depuyMembers = ['Dhivya', 'Athmika', 'Shrvaani', 'Shrvaani', 'Rooban', 'Parvatha']
+  const isIfuModule = adminModule === 'ifu'
+  const moduleWorkflows = (isIfuModule ? IFU_WORKFLOWS : LABEL_WORKFLOWS) as readonly string[]
 
-  const visibleRows = isWorkspaceAdmin
+  const visibleRows = (isWorkspaceAdmin
     ? rows.filter(r => depuyMembers.includes(r.proofreader))
     : rows
+  ).filter(r => moduleWorkflows.includes(r.workflow))
 
   // Filter rows based on selected proofreader (flexible name matching)
   const filteredRows = selectedProofreader
@@ -98,27 +114,33 @@ export default function AdminHistoryScreen({
         profileName={isWorkspaceAdmin ? 'Dhivya' : 'Admin'}
         profileInitials={isWorkspaceAdmin ? 'D' : 'A'}
         rightNode={
-          <button
-            className="text-xs ml-4 font-medium hover:opacity-80 transition-all cursor-pointer"
-            style={{ color: 'rgba(255,255,255,0.6)' }}
-            onClick={() => {
-              const headers = ['Date / Time', 'Proofreader', 'Master', 'Revised', 'Mode', 'Pairs', 'Skipped', 'Findings', 'Workflow', 'Run status']
-              const csvRows = filteredRows.map(r =>
-                [r.datetime, r.proofreader, r.master, r.revised, r.mode, r.pairs, r.skipped, r.findings, r.workflow, r.status]
-                  .map(v => `"${v}"`).join(',')
-              )
-              const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
-              const a = document.createElement('a')
-              a.href = URL.createObjectURL(blob)
-              a.download = 'proofx-history.csv'
-              document.body.appendChild(a)
-              a.click()
-              document.body.removeChild(a)
-              URL.revokeObjectURL(a.href)
-            }}
-          >
-            Export CSV
-          </button>
+          <div className="flex items-center gap-3">
+            <ModuleSwitcher
+              value={adminModule}
+              onChange={m => { onSetAdminModule(m); setPage(1); setExpandedRows(new Set()) }}
+            />
+            <button
+              className="text-xs font-medium hover:opacity-80 transition-all cursor-pointer"
+              style={{ color: 'rgba(255,255,255,0.6)' }}
+              onClick={() => {
+                const headers = ['Date / Time', 'Proofreader', 'Master', 'Revised', 'Mode', 'Pairs', 'Skipped', 'Findings', 'Workflow', 'Run status']
+                const csvRows = filteredRows.map(r =>
+                  [r.datetime, r.proofreader, r.master, r.revised, r.mode, r.pairs, r.skipped, r.findings, r.workflow, r.status]
+                    .map(v => `"${v}"`).join(',')
+                )
+                const blob = new Blob([[headers.join(','), ...csvRows].join('\n')], { type: 'text/csv' })
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(blob)
+                a.download = 'proofx-history.csv'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(a.href)
+              }}
+            >
+              Export CSV
+            </button>
+          </div>
         }
       />
 
@@ -131,7 +153,7 @@ export default function AdminHistoryScreen({
           <div>
             <h1 className="font-bold text-xl text-slate-800" style={{ fontFamily: 'Inter, sans-serif' }}>Run History</h1>
             <p className="text-xs mt-0.5 text-slate-400">
-              {isWorkspaceAdmin ? 'All runs for DePuy CSV Team' : 'All runs across all proofreaders'}
+              {isIfuModule ? 'All IFU document comparison runs' : 'All label comparison runs'}{isWorkspaceAdmin ? ' for DePuy CSV Team' : ' across all proofreaders'}
             </p>
           </div>
 
@@ -157,7 +179,7 @@ export default function AdminHistoryScreen({
           <table className="w-full text-sm">
             <thead>
               <tr style={{ backgroundColor: C.grayBg, borderBottom: `1px solid ${C.border}` }}>
-                {['', 'DATE / TIME', 'PROOFREADER', ...(!isWorkspaceAdmin ? ['TEAM'] : []), 'MASTER', 'REVISED', 'MODE', 'PAIRS', 'SKIPPED', 'FINDINGS', 'WORKFLOW', 'RUN STATUS', 'PREVIEW', 'DOWNLOAD'].map(h => (
+                {['', 'DATE / TIME', 'PROOFREADER', ...(!isWorkspaceAdmin ? ['TEAM'] : []), 'MASTER', 'REVISED', 'MODE', 'PAIRS', 'SKIPPED', 'FINDINGS', ...(isIfuModule ? ['LANG COUNT'] : []), 'WORKFLOW', 'RUN STATUS', 'PREVIEW', 'DOWNLOAD'].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left text-xs font-bold text-slate-400 tracking-wider whitespace-nowrap">
                     {h}
                   </th>
@@ -167,7 +189,7 @@ export default function AdminHistoryScreen({
             <tbody>
               {pagedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={isWorkspaceAdmin ? 13 : 14} className="px-5 py-8 text-center text-xs text-slate-400 italic">
+                  <td colSpan={(isWorkspaceAdmin ? 13 : 14) + (isIfuModule ? 1 : 0)} className="px-5 py-8 text-center text-xs text-slate-400 italic">
                     No runs recorded.
                   </td>
                 </tr>
@@ -230,10 +252,16 @@ export default function AdminHistoryScreen({
                       <td className="px-3 py-3 text-xs text-center text-slate-700">{row.pairs}</td>
                       <td className="px-3 py-3 text-xs text-center font-semibold" style={{ color: row.skipped > 0 ? C.red : C.muted }}>{row.skipped}</td>
                       <td className="px-3 py-3 text-xs text-center font-bold text-slate-800">{row.findings}</td>
+                      {isIfuModule && (
+                        <td className="px-3 py-3 text-xs text-center font-semibold text-slate-700">{IFU_LANG_COUNT}</td>
+                      )}
                       <td className="px-3 py-3">
                         <span
                           className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                          style={{ backgroundColor: row.workflow === 'VISUAL COMPARISON' ? C.orangeLight : C.navyLight, color: row.workflow === 'VISUAL COMPARISON' ? C.orangeText : C.navy }}
+                          style={{
+                            backgroundColor: row.workflow === 'VISUAL COMPARISON' ? C.orangeLight : row.workflow === 'DOCUMENT COMPARISON' ? '#F1F5F9' : C.navyLight,
+                            color: row.workflow === 'VISUAL COMPARISON' ? C.orangeText : row.workflow === 'DOCUMENT COMPARISON' ? '#475569' : C.navy,
+                          }}
                         >
                           {row.workflow}
                         </span>
@@ -247,7 +275,7 @@ export default function AdminHistoryScreen({
                             const isBulk = row.mode === 'BULK'
                             onSetFiles?.(isBulk ? 'Master.pdf' : row.master, isBulk ? 'Revised.pdf' : row.revised, isBulk)
                             onSetLrfFlowActive?.(row.workflow === 'PROOF READING')
-                            onSetIfuFlowActive?.(row.workflow === 'IFU DOCUMENT COMPARISON')
+                            onSetIfuFlowActive?.(row.workflow === 'DOCUMENT COMPARISON')
                             onNavigate('analysis')
                           }}
                           className="flex items-center justify-center rounded hover:opacity-70 cursor-pointer"
@@ -263,8 +291,8 @@ export default function AdminHistoryScreen({
                         <button
                           onClick={() => {
                             const isLrfBulk = row.mode === 'BULK' && row.workflow === 'PROOF READING'
-                            const file = isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
-                            const name = isLrfBulk ? 'ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? 'ProofX_Bulk_Report.pdf' : 'ProofX_Report.pdf'
+                            const file = row.workflow === 'DOCUMENT COMPARISON' ? '/IFU-Report.pdf' : isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
+                            const name = row.workflow === 'DOCUMENT COMPARISON' ? 'IFU-Report.pdf' : isLrfBulk ? 'ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? 'ProofX_Bulk_Report.pdf' : 'ProofX_Report.pdf'
                             const a = document.createElement('a')
                             a.href = file
                             a.download = name
@@ -286,7 +314,7 @@ export default function AdminHistoryScreen({
                     {/* Expanded pair breakdown */}
                     {expandedRows.has(i) && row.expandable && (
                       <tr style={{ backgroundColor: C.grayBg, borderBottom: `2px solid ${C.border}` }}>
-                        <td colSpan={isWorkspaceAdmin ? 13 : 14} className="px-8 py-4">
+                        <td colSpan={(isWorkspaceAdmin ? 13 : 14) + (isIfuModule ? 1 : 0)} className="px-8 py-4">
                           <div className="w-full text-xs">
                             <div className="grid grid-cols-12 font-bold mb-2 uppercase text-slate-400 tracking-wider">
                               <div className="col-span-5">Master</div>

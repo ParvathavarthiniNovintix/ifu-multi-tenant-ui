@@ -11,7 +11,12 @@ type Props = {
   onSetIfuFlowActive?: (active: boolean) => void
 }
 
-const rows = [
+const LABEL_WORKFLOWS = ['VISUAL COMPARISON', 'PROOF READING'] as const
+const IFU_WORKFLOWS = ['DOCUMENT COMPARISON'] as const
+// IFU documents are validated across this many languages (mock — real detection would come from the backend)
+const IFU_LANG_COUNT = 13
+
+const labelRows = [
   { datetime: 'Jul 23, 2026, 02:02 PM', master: 'Master.pdf', revised: 'Revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 0, workflow: 'PROOF READING', status: 'PASS', expandable: false, bulkMasterKey: 'Master.pdf', bulkRevisedKey: 'Revised.pdf' },
   { datetime: 'Jul 21, 2026, 11:52 AM', master: '→ 2 files', revised: '→ 2 files', mode: 'BULK', pairs: 2, skipped: 0, findings: 12, workflow: 'PROOF READING', status: 'PASS', expandable: true, bulkMasterKey: 'Master.pdf', bulkRevisedKey: 'Revised.pdf' },
   { datetime: 'Jul 21, 2026, 10:52 AM', master: '→ 2 files', revised: '→ 2 files', mode: 'BULK', pairs: 2, skipped: 0, findings: 1, workflow: 'PROOF READING', status: 'PASS', expandable: true, bulkMasterKey: 'Master.pdf', bulkRevisedKey: 'Revised.pdf' },
@@ -19,8 +24,12 @@ const rows = [
   { datetime: 'Jul 14, 2026, 03:45 PM', master: 'LCN-label.pdf', revised: 'LCN-label-v2.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 5, workflow: 'PROOF READING', status: 'PASS', expandable: false, bulkMasterKey: 'LCN-label.pdf', bulkRevisedKey: 'LCN-label-v2.pdf' },
   { datetime: 'Jul 10, 2026, 10:20 AM', master: '→ 2 files', revised: '→ 2 files', mode: 'BULK', pairs: 2, skipped: 0, findings: 9, workflow: 'VISUAL COMPARISON', status: 'PASS', expandable: true, bulkMasterKey: 'Master.pdf', bulkRevisedKey: 'Revised.pdf' },
   { datetime: 'Jul 7, 2026, 09:05 AM', master: 'Master.pdf', revised: 'Revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 3, workflow: 'PROOF READING', status: 'PASS', expandable: false, bulkMasterKey: 'Master.pdf', bulkRevisedKey: 'Revised.pdf' },
-  { datetime: 'Aug 1, 2026, 09:38 AM', master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 11, workflow: 'IFU DOCUMENT COMPARISON', status: 'PASS', expandable: false, bulkMasterKey: 'IFU-current.pdf', bulkRevisedKey: 'IFU-revised.pdf' },
-  { datetime: 'Aug 3, 2026, 03:24 PM', master: '→ 2 files', revised: '→ 2 files', mode: 'BULK', pairs: 2, skipped: 1, findings: 9, workflow: 'IFU DOCUMENT COMPARISON', status: 'PASS', expandable: true, bulkMasterKey: 'IFU-current.pdf', bulkRevisedKey: 'IFU-revised.pdf' },
+]
+
+const ifuRows = [
+  { datetime: 'Aug 1, 2026, 09:38 AM', master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 11, workflow: 'DOCUMENT COMPARISON', status: 'PASS', expandable: false, bulkMasterKey: 'IFU-current.pdf', bulkRevisedKey: 'IFU-revised.pdf' },
+  { datetime: 'Aug 3, 2026, 03:24 PM', master: 'IFU-current.pdf', revised: 'IFU-revised.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 9, workflow: 'DOCUMENT COMPARISON', status: 'PASS', expandable: false, bulkMasterKey: 'IFU-current.pdf', bulkRevisedKey: 'IFU-revised.pdf' },
+  { datetime: 'Jul 30, 2026, 04:05 PM', master: 'IFU-149990B_test.pdf', revised: 'IFU-149990C_test.pdf', mode: 'SINGLE', pairs: 1, skipped: 0, findings: 82, workflow: 'DOCUMENT COMPARISON', status: 'PASS', expandable: false, bulkMasterKey: 'IFU-149990B_test.pdf', bulkRevisedKey: 'IFU-149990C_test.pdf' },
 ]
 
 const pairNames = [
@@ -37,9 +46,14 @@ function getPairFiles(row: { pairs: number; skipped: number }) {
 
 export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, onSetFiles, onSetLrfFlowActive, onSetIfuFlowActive }: Props) {
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
-  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'IFU DOCUMENT COMPARISON'>('ALL')
+  const [workflowFilter, setWorkflowFilter] = useState<'ALL' | 'VISUAL COMPARISON' | 'PROOF READING' | 'DOCUMENT COMPARISON'>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [page] = useState(1)
+
+  // This history page is reached only from the Label workflow or the IFU workflow — keep the two modules isolated
+  const isIfuModule = previousScreen === 'upload-ifu'
+  const moduleWorkflows = isIfuModule ? IFU_WORKFLOWS : LABEL_WORKFLOWS
+  const rows = isIfuModule ? ifuRows : labelRows
 
   const toggleRow = (i: number) => {
     setExpandedRows(prev => {
@@ -98,14 +112,14 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h1 className="font-bold text-xl text-slate-800">Run History</h1>
-                <p className="text-xs mt-0.5 text-slate-400">All your label comparison runs</p>
+                <p className="text-xs mt-0.5 text-slate-400">All your {isIfuModule ? 'IFU document comparison' : 'label comparison'} runs</p>
               </div>
             </div>
 
             {/* Filters */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-1.5">
-                {(['ALL', 'VISUAL COMPARISON', 'PROOF READING', 'IFU DOCUMENT COMPARISON'] as const).map(w => (
+                {(isIfuModule ? moduleWorkflows : (['ALL', ...moduleWorkflows] as const)).map(w => (
                   <button
                     key={w}
                     onClick={() => setWorkflowFilter(w)}
@@ -115,7 +129,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                       color: workflowFilter === w ? C.white : C.grayText,
                     }}
                   >
-                    {w === 'IFU DOCUMENT COMPARISON' ? 'IFU Document Comparison' : w}
+                    {w === 'DOCUMENT COMPARISON' ? 'Document Comparison' : w}
                   </button>
                 ))}
               </div>
@@ -140,7 +154,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                 <table className="w-full text-sm">
                   <thead>
                     <tr style={{ backgroundColor: C.grayBg, borderBottom: `1px solid ${C.border}` }}>
-                      {['', 'DATE / TIME', 'MASTER', 'REVISED', 'MODE', 'PAIRS', 'SKIPPED', 'FINDINGS', 'WORKFLOW', 'STATUS', 'PREVIEW', 'DOWNLOAD'].map(h => (
+                      {['', 'DATE / TIME', 'MASTER', 'REVISED', 'MODE', 'PAIRS', 'SKIPPED', 'FINDINGS', ...(isIfuModule ? ['LANG COUNT'] : []), 'WORKFLOW', 'STATUS', 'PREVIEW', 'DOWNLOAD'].map(h => (
                         <th key={h} className="px-3 py-2.5 text-left text-xs font-bold text-slate-400 tracking-wider whitespace-nowrap">
                           {h}
                         </th>
@@ -150,7 +164,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                   <tbody>
                     {filteredRows.length === 0 ? (
                       <tr>
-                        <td colSpan={12} className="px-5 py-8 text-center text-xs text-slate-400 italic">
+                        <td colSpan={isIfuModule ? 13 : 12} className="px-5 py-8 text-center text-xs text-slate-400 italic">
                           No runs found.
                         </td>
                       </tr>
@@ -189,9 +203,15 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                             <td className="px-3 py-3 text-xs text-center text-slate-700">{row.pairs}</td>
                             <td className="px-3 py-3 text-xs text-center font-semibold" style={{ color: row.skipped > 0 ? C.red : C.muted }}>{row.skipped}</td>
                             <td className="px-3 py-3 text-xs text-center font-bold text-slate-800">{row.findings}</td>
+                            {isIfuModule && (
+                              <td className="px-3 py-3 text-xs text-center font-semibold text-slate-700">{IFU_LANG_COUNT}</td>
+                            )}
                             <td className="px-3 py-3">
                               <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                                style={{ backgroundColor: row.workflow === 'VISUAL COMPARISON' ? C.orangeLight : C.navyLight, color: row.workflow === 'VISUAL COMPARISON' ? C.orangeText : C.navy }}>
+                                style={{
+                                  backgroundColor: row.workflow === 'VISUAL COMPARISON' ? C.orangeLight : row.workflow === 'DOCUMENT COMPARISON' ? '#F1F5F9' : C.navyLight,
+                                  color: row.workflow === 'VISUAL COMPARISON' ? C.orangeText : row.workflow === 'DOCUMENT COMPARISON' ? '#475569' : C.navy,
+                                }}>
                                 {row.workflow}
                               </span>
                             </td>
@@ -205,7 +225,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                                   // For bulk history preview, pass the first pair's names; historyPreview=true → 2-pair view
                                   onSetFiles?.(isBulk ? row.bulkMasterKey : row.master, isBulk ? row.bulkRevisedKey : row.revised, isBulk)
                                   onSetLrfFlowActive?.(row.workflow === 'PROOF READING')
-                                  onSetIfuFlowActive?.(row.workflow === 'IFU DOCUMENT COMPARISON')
+                                  onSetIfuFlowActive?.(row.workflow === 'DOCUMENT COMPARISON')
                                   onNavigate('analysis')
                                 }}
                                 className="flex items-center justify-center rounded hover:opacity-70 cursor-pointer"
@@ -220,7 +240,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                             <td className="px-3 py-3">
                               <button
                                 onClick={() => {
-                                  const isIfu = row.workflow === 'IFU DOCUMENT COMPARISON'
+                                  const isIfu = row.workflow === 'DOCUMENT COMPARISON'
                                   const isLrfBulk = row.mode === 'BULK' && row.workflow === 'PROOF READING'
                                   const file = isIfu ? '/IFU-Report.pdf' : isLrfBulk ? '/ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? '/ProofX_Bulk_Report.pdf' : '/ProofX_Report.pdf'
                                   const name = isIfu ? 'IFU-Report.pdf' : isLrfBulk ? 'ProofX_Bulk_LRF_Report.pdf' : row.mode === 'BULK' ? 'ProofX_Bulk_Report.pdf' : 'ProofX_Report.pdf'
@@ -244,7 +264,7 @@ export default function ProofreaderHistoryScreen({ onNavigate, previousScreen, o
                           </tr>
                           {expandedRows.has(i) && row.expandable && (
                             <tr style={{ backgroundColor: C.grayBg, borderBottom: `2px solid ${C.border}` }}>
-                              <td colSpan={12} className="px-8 py-4">
+                              <td colSpan={isIfuModule ? 13 : 12} className="px-8 py-4">
                                 <div className="w-full text-xs">
                                   <div className="grid grid-cols-12 font-bold mb-2 uppercase text-slate-400 tracking-wider">
                                     <div className="col-span-5">Master</div>

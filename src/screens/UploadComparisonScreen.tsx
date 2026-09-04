@@ -324,7 +324,7 @@ export default function UploadComparisonScreen({ onNavigate, onSetFiles }: Props
                 disabled={!ready}
                 className="px-8 py-2.5 rounded-lg text-sm font-bold text-white transition-all cursor-pointer"
                 style={{
-                  backgroundColor: ready ? '#f2801d' : '#f2801d60',
+                  backgroundColor: ready ? '#1C2E59' : '#1C2E5960',
                   cursor: ready ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -377,7 +377,7 @@ function DropZone({
     onFile({ name: f.name, size: f.size, url: URL.createObjectURL(f), file: f });
   };
 
-  const accentColor = variant === "master" ? "#DC2626" : "#2563EB";
+  const accentColor = variant === "master" ? "#ea580c" : "#2563EB";
 
   return (
     <div>
@@ -472,7 +472,7 @@ function MultiDropZone({
     onFiles(prev => [...prev, ...arr]);
   };
 
-  const accentColor = variant === "master" ? "#DC2626" : "#2563EB";
+  const accentColor = variant === "master" ? "#ea580c" : "#2563EB";
   const atLimit = files.length >= 50;
 
   return (
@@ -617,7 +617,7 @@ function ProcessingModal({
             </button>
             <button
               onClick={onContinue}
-              className="px-6 py-2.5 text-sm font-bold uppercase tracking-wider bg-[#ea580c] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-6 py-2.5 text-sm font-bold uppercase tracking-wider bg-[#1C2E59] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               PROCEED <ArrowRight className="h-3.5 w-3.5" />
             </button>
